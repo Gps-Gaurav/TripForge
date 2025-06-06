@@ -1,12 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 
 const Header = ({ token, handleLogout }) => {
     const { isDark, toggleTheme } = useTheme();
+    const [currentDateTime, setCurrentDateTime] = useState('2025-06-06 12:46:32');
+    const [username] = useState('Gps-Gaurav');
+
+    // Update current time every second
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const now = new Date();
+            const formatted = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')}`;
+            setCurrentDateTime(formatted);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     return (
         <header className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b transition-colors duration-200`}>
+            <div className={`w-full px-4 py-2 ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+                <div className="max-w-7xl mx-auto flex justify-between items-center text-sm">
+                    <div className={`${isDark ? 'text-gray-300' : 'text-gray-600'} flex items-center space-x-2`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{currentDateTime} UTC</span>
+                    </div>
+                    {token && (
+                        <div className={`${isDark ? 'text-gray-300' : 'text-gray-600'} flex items-center space-x-2`}>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span>{username}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* Left side - Logo and Brand */}
