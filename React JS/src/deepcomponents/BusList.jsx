@@ -13,7 +13,6 @@ const BusList = ({ token }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterOrigin, setFilterOrigin] = useState('');
   const [filterDestination, setFilterDestination] = useState('');
-  const [username] = useState('Gps-Gaurav');
 
   const navigate = useNavigate();
 
@@ -34,7 +33,7 @@ const BusList = ({ token }) => {
     };
     fetchBuses();
   }, []);
-  const renderSeatPreview = (bus) => {
+const renderSeatPreview = (bus) => {
     const totalSeats = bus.total_seats || 50;
     const bookedSeats = new Set(bus.seats?.filter(seat => seat.is_booked).map(seat => seat.seat_number) || []);
     const seatsPerRow = 5;

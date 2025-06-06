@@ -44,11 +44,7 @@ const BusSeats = ({ token, isDark }) => {
 
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [cancelModalOpen, setCancelModalOpen] = useState(false);
-
-  const [currentTime, setCurrentTime] = useState(
-    new Date().toISOString().slice(0, 19).replace('T', ' ')
-  );
+  
 
   // Fetch bus and seats data
   useEffect(() => {
@@ -66,14 +62,6 @@ const BusSeats = ({ token, isDark }) => {
     fetchBus();
   }, [busId]);
 
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date().toISOString().slice(0, 19).replace('T', ' '));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   // Handle seat click
   const onSeatClick = (seat) => {
     if (!token) {
@@ -82,11 +70,9 @@ const BusSeats = ({ token, isDark }) => {
       return;
     }
     setSelectedSeat(seat);
-    if (seat.is_booked) {
-      setCancelModalOpen(true);
-    } else {
-      setBookingModalOpen(true);
-    }
+    if (!seat.is_booked) {
+     setBookingModalOpen(true);
+    } 
   };
 
   // Confirm booking
@@ -113,25 +99,6 @@ const BusSeats = ({ token, isDark }) => {
     }
   };
 
-  // Confirm cancellation
-  const confirmCancel = async () => {
-    try {
-      await axios.delete(`http://localhost:8000/api/booking/${selectedSeat.id}/`, {
-        headers: { Authorization: `Token ${token}` },
-      });
-
-      setSeats((prev) =>
-        prev.map((s) => (s.id === selectedSeat.id ? { ...s, is_booked: false } : s))
-      );
-
-      toast.success('Booking cancelled successfully');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Cancellation failed');
-    } finally {
-      setCancelModalOpen(false);
-      setSelectedSeat(null);
-    }
-  };
 
   if (loading)
     return (
@@ -153,17 +120,7 @@ const BusSeats = ({ token, isDark }) => {
 
   return (
     <div className={`container mx-auto p-6 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-      {/* Header with date/time */}
-      <div
-        className={`mb-6 p-4 rounded-lg shadow ${
-          isDark ? 'bg-gray-800' : 'bg-white'
-        } flex justify-between`}
-      >
-        <div>
-          <strong>Date & Time: </strong> {currentTime} UTC
-        </div>
-      </div>
-
+  
       {/* Bus Details */}
       <section
         className={`mb-8 p-6 rounded-lg shadow ${
@@ -299,40 +256,7 @@ const BusSeats = ({ token, isDark }) => {
         </div>
       </Modal>
 
-      {/* Cancel Modal */}
-      <Modal
-        isOpen={cancelModalOpen}
-        onClose={() => {
-          setCancelModalOpen(false);
-          setSelectedSeat(null);
-        }}
-        title="Cancel Booking"
-        isDark={isDark}
-      >
-        <p>
-          Are you sure you want to cancel booking for seat{' '}
-          <strong>{selectedSeat?.seat_number}</strong>?
-        </p>
-        <div className="mt-6 flex justify-end space-x-4">
-          <button
-            onClick={() => {
-              setCancelModalOpen(false);
-              setSelectedSeat(null);
-            }}
-            className={`px-4 py-2 rounded ${
-              isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
-            }`}
-          >
-            Keep Booking
-          </button>
-          <button
-            onClick={confirmCancel}
-            className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white"
-          >
-            Cancel Booking
-          </button>
-        </div>
-      </Modal>
+  
 
       <ToastContainer
         position="top-right"
