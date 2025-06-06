@@ -1,100 +1,115 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Header from '../components/Header';
+import { useTheme } from '../context/ThemeContext';
 
-const Wrapper = ({ token, handleLogout, children }) => {
-  const navigate = useNavigate();
+const Wrapper = ({ children, token, handleLogout }) => {
+    const { isDark } = useTheme();
+    
+    return (
+        <div className={`min-h-screen flex flex-col ${isDark ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-200`}>
+            {/* Use the separate Header component */}
+            <Header token={token} handleLogout={handleLogout} />
 
-  const logout = () => {
-    handleLogout();
-    navigate('/login');
-  };
+            {/* Main Content */}
+            <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className={`shadow-sm rounded-lg p-6 transition-colors duration-200 ${
+                    isDark 
+                        ? 'bg-gray-800 text-gray-100' 
+                        : 'bg-white text-gray-900'
+                }`}>
+                    {/* Date Time Banner */}
+                    <div className={`mb-6 p-4 rounded-lg ${
+                        isDark 
+                            ? 'bg-gray-700 text-gray-200' 
+                            : 'bg-gray-50 text-gray-700'
+                    }`}>
+                        <div className="flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+                            <div className="flex items-center space-x-2">
+                                <svg 
+                                    className="w-5 h-5" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round" 
+                                        strokeWidth="2" 
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                </svg>
+                                <span className="text-sm font-medium">
+                                    2025-06-06 10:09:25 UTC
+                                </span>
+                            </div>
+                            {token && (
+                                <div className="flex items-center space-x-2">
+                                    <svg 
+                                        className="w-5 h-5" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round" 
+                                            strokeWidth="2" 
+                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                        />
+                                    </svg>
+                                    <span className="text-sm font-medium">
+                                        Welcome, Gps-Gaurav
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Navigation */}
-      <nav className="bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            {/* Left side navigation */}
-            <div className="flex items-center space-x-8">
-              <Link 
-                to="/" 
-                className="flex items-center text-indigo-600 hover:text-indigo-800 transition-colors"
-              >
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  className="h-6 w-6 mr-2" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" 
-                  />
-                </svg>
-                <span className="text-xl font-bold">Spring Travels</span>
-              </Link>
-              
-              {token && (
-                <Link 
-                  to='/my-bookings' 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-100 transition-colors"
-                >
-                  My Bookings
-                </Link>
-              )}
-            </div>
+                    {/* Main Content */}
+                    <div className="prose dark:prose-invert max-w-none">
+                        {children}
+                    </div>
+                </div>
+            </main>
 
-            {/* Right side navigation */}
-            <div className="flex items-center space-x-4">
-              {token ? (
-                <button 
-                  onClick={logout}
-                  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Logout
-                </button>
-              ) : (
-                <>
-                  <Link 
-                    to="/register" 
-                    className="px-4 py-2 rounded-md text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-                  >
-                    Register
-                  </Link>
-                  <Link 
-                    to="/login" 
-                    className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Login
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
+            {/* Footer */}
+            <footer className={`${
+                isDark 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+            } border-t transition-colors duration-200`}>
+                <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                        {/* Copyright */}
+                        <p className={`text-sm ${
+                            isDark ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                            &copy; {new Date().getFullYear()} TripForge. All rights reserved.
+                        </p>
+
+                        {/* Creator Attribution */}
+                        <div className={`text-sm ${
+                            isDark ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                            Created with ❤️ by{' '}
+                            <a 
+                                href="https://github.com/Gps-Gaurav" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className={`${
+                                    isDark 
+                                        ? 'text-indigo-400 hover:text-indigo-300' 
+                                        : 'text-indigo-600 hover:text-indigo-800'
+                                } transition-colors duration-200`}
+                            >
+                                Gps-Gaurav
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </footer>
         </div>
-      </nav>
-
-      {/* Main content */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <div className="bg-white shadow-sm rounded-lg p-6">
-          {children}
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} TravelEase. All rights reserved.
-          </p>
-        </div>
-      </footer>
-    </div>
-  );
+    );
 };
 
 export default Wrapper;
