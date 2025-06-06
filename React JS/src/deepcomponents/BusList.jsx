@@ -44,6 +44,39 @@ const BusList = ({ token }) => {
     const uniqueOrigins = [...new Set(buses.map(bus => bus.origin))]
     const uniqueDestinations = [...new Set(buses.map(bus => bus.destination))]
 
+    const renderSeatPreview = (totalSeats = 50) => {
+        const seatsPerRow = 5;
+        const rows = Math.ceil(totalSeats / seatsPerRow);
+        const layout = [];
+
+        for (let i = 0; i < rows; i++) {
+            const row = [];
+            for (let j = 0; j < seatsPerRow; j++) {
+                const seatNumber = i * seatsPerRow + j + 1;
+                if (seatNumber <= totalSeats) {
+                    row.push(
+                        <div
+                            key={seatNumber}
+                            className={`w-5 h-5 rounded-sm m-0.5 ${
+                                isDark ? 'bg-green-600' : 'bg-green-500'
+                            }`}
+                            title={`Seat ${seatNumber}`}
+                        />
+                    );
+                }
+            }
+            layout.push(
+                <div key={i} className="flex justify-center">
+                    <div className="flex gap-1">{row.slice(0, 2)}</div>
+                    <div className="w-3" /> {/* aisle */}
+                    <div className="flex gap-1">{row.slice(2)}</div>
+                </div>
+            );
+        }
+
+        return <div className="mt-2">{layout}</div>;
+    };
+
     if (isLoading) {
         return (
             <div className={`flex justify-center items-center min-h-screen ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -208,6 +241,12 @@ const BusList = ({ token }) => {
                                         </svg>
                                         <span>Arrive: {bus.reach_time}</span>
                                     </div>
+                                </div>
+
+                                {/* Seat Layout */}
+                                <div className="mt-4">
+                                    <h4 className={`text-sm font-medium mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Seat Layout (2+3)</h4>
+                                    {renderSeatPreview(bus.total_seats || 50)}
                                 </div>
 
                                 <div className="mt-6">
