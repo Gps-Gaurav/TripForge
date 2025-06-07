@@ -146,7 +146,7 @@ const App = () => {
                 draggable
                 pauseOnHover
                 theme={isDark ? 'dark' : 'light'}
-                limit={3} // Limit number of toasts shown at once
+                limit={1} // Limit number of toasts shown at once
             />
         </div>
     );

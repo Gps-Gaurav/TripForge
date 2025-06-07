@@ -99,6 +99,12 @@ const BusSeats = ({ token, isDark }) => {
       return;
     }
 
+    if (!token) {
+      toast.error('Please login to book a seat');
+      navigate('/login');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await axios.post(
@@ -116,13 +122,26 @@ const BusSeats = ({ token, isDark }) => {
       );
 
       if (response.status === 201) {
-        toast.success('Booking confirmed successfully!');
-        // Refresh the seat status or redirect to booking confirmation
-        window.location.reload();
+        // Close modal first
+        setBookingModalOpen(false);
+        setSelectedSeat(null);
+
+        // Show success toast with auto-refresh
+        toast.success('Booking confirmed successfully!', {
+          onClose: () => {
+            window.location.reload();
+          }
+        });
       }
     } catch (error) {
       console.error('Booking error:', error);
-      toast.error(error.response?.data?.error || 'Failed to confirm booking');
+      const errorMessage = 
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        'Failed to confirm booking';
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -296,23 +315,31 @@ const BusSeats = ({ token, isDark }) => {
               }}
               className={`px-4 py-2 rounded ${
                 isDark 
-                  ? 'bg-gray-700 hover:bg-gray-600' 
-                  : 'bg-gray-200 hover:bg-gray-300'
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
               }`}
             >
               Cancel
             </button>
             <button
-        onClick={confirmBooking}
-        disabled={!selectedSeat || loading}
-        className={`mt-4 px-4 py-2 rounded ${
-          !selectedSeat || loading
-            ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-indigo-600 hover:bg-indigo-700'
-        } text-white`}
-      >
-        {loading ? 'Confirming...' : 'Confirm Booking'}
-      </button>
+              onClick={confirmBooking}
+              disabled={!selectedSeat || loading}
+              className={`px-4 py-2 rounded ${
+                !selectedSeat || loading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-700'
+              } text-white`}
+            >
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Confirming...
+                </span>
+              ) : 'Confirm Booking'}
+            </button>
           </div>
         </div>
       </Modal>
