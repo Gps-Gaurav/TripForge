@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import { useTheme } from '../context/ThemeContext';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Payment Modal Component
-const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
+const PaymentModal = ({ isOpen, onClose, amount, isDark }) => {
   const [paymentMethod, setPaymentMethod] = useState('upi');
   const [upiId, setUpiId] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -351,34 +352,46 @@ const UserBookings = ({ token, userId }) => {
   }
   const handleCancelBooking = async (bookingId) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/cancel/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          reason: 'Cancelled by user'
-        })
-      });
+        // Get token from localStorage
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            throw new Error('Authentication required');
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to cancel booking');
-      }
+        await axios({
+            method: 'POST',
+            url: `${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/cancel/`,
+            headers: {
+                'Authorization': `Token ${token}`,
+                'Content-Type': 'application/json'
+            },
+            data: {
+                reason: 'Cancelled by user'
+            }
+        });
 
-      await Promise.all([
-        fetchBookings(),
-        fetchBookingStats()
-      ]);
-      toast.success('Booking cancelled successfully');
-    } catch (err) {
-      console.error('Error cancelling booking:', err);
-      toast.error(err.message || 'Failed to cancel booking');
-    } finally {
-      setConfirmDialog({ isOpen: false, bookingId: null });
+        // If successful, refresh the data
+        await Promise.all([
+            fetchBookings(),
+            fetchBookingStats()
+        ]);
+
+        toast.success('Booking cancelled successfully');
+        setConfirmDialog({ isOpen: false, bookingId: null });
+
+    } catch (error) {
+        console.error('Cancellation error details:', error.response || error);
+        
+        const errorMessage = error.response?.data?.detail || 
+                           error.response?.data?.message || 
+                           error.message || 
+                           'Failed to cancel booking';
+        
+        toast.error(errorMessage);
+        setConfirmDialog({ isOpen: false, bookingId: null });
     }
-  };
+};
 
   return (
     <div className={`container mx-auto px-4 py-8 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
