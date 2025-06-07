@@ -245,76 +245,64 @@ const UserBookings = ({ token, userId }) => {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`http://localhost:8000/api/user/${userId}/bookings/`, {
-          headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch bookings');
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:8000/api/user/${userId}/bookings/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
         }
+      });
 
-        const data = await response.json();
-        setBookings(data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching bookings:', err);
-        setError('Failed to load bookings');
-        toast.error('Failed to load bookings');
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
       }
-    };
 
+      const data = await response.json();
+      setBookings(data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
+      setError('Failed to load bookings');
+      toast.error('Failed to load bookings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (token && userId) {
       fetchBookings();
     }
   }, [token, userId]);
-const handleCancelBooking = async (bookingId) => {
-  try {
-    const response = await fetch(`http://localhost:8000/api/bookings/${bookingId}/cancel/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        cancellation_reason: 'Cancelled by user'
-      })
-    });
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/bookings/${bookingId}/cancel/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          cancellation_reason: 'Cancelled by user'
+        })
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to cancel booking');
-    }
-
-    const updatedResponse = await fetch(`http://localhost:8000/api/user/${userId}/bookings/`, {
-      headers: {
-        'Authorization': `Token ${token}`,
-        'Content-Type': 'application/json'
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to cancel booking');
       }
-    });
 
-    if (updatedResponse.ok) {
-      const updatedData = await updatedResponse.json();
-      setBookings(updatedData);
+      await fetchBookings(); // Refresh the bookings list
+      toast.success('Booking cancelled successfully');
+    } catch (err) {
+      console.error('Error cancelling booking:', err);
+      toast.error(err.message || 'Failed to cancel booking');
+    } finally {
+      setConfirmDialog({ isOpen: false, bookingId: null });
     }
-
-    toast.success('Booking cancelled successfully');
-  } catch (err) {
-    console.error('Error cancelling booking:', err);
-    toast.error(err.message || 'Failed to cancel booking');
-  } finally {
-    setConfirmDialog({ isOpen: false, bookingId: null });
-  }
-};
- 
-
+  };
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">

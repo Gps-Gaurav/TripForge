@@ -56,7 +56,7 @@ const BusSeats = ({ token, isDark }) => {
 
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/buses/${busId}/`, {
+        const response = await axios.get(`http://localhost:8000/api/buses/${busId}`, {
           headers: {
             'Authorization': `Token ${token}`,
             'Content-Type': 'application/json',
@@ -95,26 +95,23 @@ const BusSeats = ({ token, isDark }) => {
   // Confirm booking
   const confirmBooking = async () => {
     if (!selectedSeat) return;
-
     try {
-      const response = await axios.post(
+      await axios.post(
         'http://localhost:8000/api/booking/',
         { seat: selectedSeat.id },
         {
           headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
-          }
+            Authorization: `Token ${token}`,
+          },
         }
       );
 
       // Update local seat state
-      setSeats(prevSeats =>
-        prevSeats.map(seat =>
+      setSeats((prevSeats) =>
+        prevSeats.map((seat) =>
           seat.id === selectedSeat.id ? { ...seat, is_booked: true } : seat
         )
       );
-
       toast.success('Seat booked successfully!');
       setBookingModalOpen(false);
       setSelectedSeat(null);
