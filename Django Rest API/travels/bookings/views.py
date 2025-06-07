@@ -1,5 +1,5 @@
 from django.contrib.auth import authenticate
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from rest_framework import status, generics
 from rest_framework.views import APIView
@@ -93,35 +93,81 @@ class UserBookingStatsView(APIView):
                 'error': f'An error occurred: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class RegisterView(APIView):
-    def post(self, request):
-        serializer = UserRegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            token, created = Token.objects.get_or_create(user=user)
-            return Response({
-                'token': token.key,
-                'user_id': user.id,
-                'message': 'Registration successful'
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-class LoginView(APIView):
-    def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        user = authenticate(username=username, password=password)
+    permission_classes = [AllowAny]
 
-        if user:
+    def post(self, request):
+        try:
+            logger.info(f"Registration attempt with data: {request.data}")
+            serializer = UserRegisterSerializer(data=request.data)
+            
+            if serializer.is_valid():
+                user = serializer.save()
+                token, created = Token.objects.get_or_create(user=user)
+                
+                return Response({
+                    "status": "success",
+                    "message": "Registration successful",
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name
+                    },
+                    "token": token.key
+                }, status=status.HTTP_201_CREATED)
+            
+            logger.error(f"Registration validation errors: {serializer.errors}")
+            return Response({
+                "status": "error",
+                "details": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.error(f"Registration error: {str(e)}")
+            return Response({
+                "status": "error",
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class LoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            username = request.data.get('username')
+            password = request.data.get('password')
+
+            if not username or not password:
+                return Response({
+                    'error': 'Please provide both username and password'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            user = authenticate(username=username, password=password)
+
+            if not user:
+                return Response({
+                    'error': 'Invalid credentials'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+
             token, created = Token.objects.get_or_create(user=user)
+
             return Response({
                 'token': token.key,
-                'user_id': user.id,
-                'username': user.username,
-                'message': 'Login successful'
-            }, status=status.HTTP_200_OK)
-        return Response({
-            'error': 'Invalid credentials'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class BusListCreateView(generics.ListCreateAPIView):
     queryset = Bus.objects.all()

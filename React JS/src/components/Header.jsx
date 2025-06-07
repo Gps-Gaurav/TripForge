@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 const Header = ({ token, handleLogout }) => {
     const { isDark, toggleTheme } = useTheme();
     const [currentDateTime, setCurrentDateTime] = useState('2025-06-06 12:46:32');
-    const [username] = useState('Gps-Gaurav');
+    const [username] = useState(localStorage.getItem('username') || 'Guest');
 
     // Update current time every second
     useEffect(() => {

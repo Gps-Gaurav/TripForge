@@ -2,29 +2,37 @@ from rest_framework import serializers
 from .models import Bus, Seat, Booking
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.contrib.auth.password_validation import validate_password
 
 class UserRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    confirm_password = serializers.CharField(write_only=True)
+    password = serializers.CharField(
+        write_only=True, required=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'confirm_password']
+        fields = ('username', 'email', 'password', 'password2', 'first_name', 'last_name')
+        extra_kwargs = {
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'email': {'required': True}
+        }
 
-    def validate(self, data):
-        # Check if passwords match
-        if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError("Passwords do not match")
-        return data
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password2']:
+            raise serializers.ValidationError(
+                {"password": "Password fields didn't match."})
+        return attrs
 
     def create(self, validated_data):
-        # Remove confirm_password from the data
-        validated_data.pop('confirm_password', None)
-        user = User.objects.create_user(
+        user = User.objects.create(
             username=validated_data['username'],
             email=validated_data['email'],
-            password=validated_data['password']
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name']
         )
+        user.set_password(validated_data['password'])
+        user.save()
         return user
 
 class SeatSerializer(serializers.ModelSerializer):
