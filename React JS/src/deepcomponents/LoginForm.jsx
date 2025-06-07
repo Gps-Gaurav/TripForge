@@ -39,6 +39,8 @@ const LoginForm = ({ onLogin }) => {
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('userId', response.data.user.id);
             localStorage.setItem('username', response.data.user.username);
+
+            window.dispatchEvent(new Event('authStateChange'));
             
             if (onLogin) {
                 onLogin(response.data.token, response.data.user.id);

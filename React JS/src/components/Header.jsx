@@ -5,8 +5,28 @@ import { useTheme } from '../context/ThemeContext';
 const Header = ({ token, handleLogout }) => {
     const { isDark, toggleTheme } = useTheme();
     const [currentDateTime, setCurrentDateTime] = useState('2025-06-06 12:46:32');
-    const [username] = useState(localStorage.getItem('username') || 'Guest');
+    const [username, setUsername] = useState(localStorage.getItem('username') || 'Guest');
+    useEffect(() => {
+        // Function to update username from localStorage
+        const updateUsername = () => {
+            setUsername(localStorage.getItem('username') || 'Guest');
+        };
 
+        // Update username when component mounts
+        updateUsername();
+
+        // Listen for storage events (when localStorage changes)
+        window.addEventListener('storage', updateUsername);
+
+        // Custom event listener for login/logout
+        window.addEventListener('authStateChange', updateUsername);
+
+        // Cleanup
+        return () => {
+            window.removeEventListener('storage', updateUsername);
+            window.removeEventListener('authStateChange', updateUsername);
+        };
+    }, []);
     // Update current time every second
     useEffect(() => {
         const timer = setInterval(() => {
