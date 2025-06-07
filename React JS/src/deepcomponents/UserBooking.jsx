@@ -227,6 +227,8 @@ const UserBookings = ({ token, userId }) => {
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, amount: 0, bookingId: null });
   const [bookings, setBookings] = useState([]);
   const [bookingStats, setBookingStats] = useState(null);
+
+
   const fetchBookingStats = async () => {
     try {
       console.log('Fetching stats for user:', userId); // Debug log
@@ -313,7 +315,23 @@ const UserBookings = ({ token, userId }) => {
       </div>
     );
   }
-
+  if (!token || !userId) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            Please login to view your bookings
+          </p>
+          <button
+            onClick={() => window.location.href = '/login'}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
   // Show error state
   if (error) {
     return (
