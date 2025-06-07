@@ -2,14 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { useTheme } from '../context/ThemeContext';
 import 'react-toastify/dist/ReactToastify.css';
-// Environment variables are accessed through process.env
-
-const API = {
-  USER_BOOKINGS: (userId) => `${import.meta.env.VITE_API_BASE_URL}/user/${userId}/bookings/`,
-  CANCEL_BOOKING: (bookingId) => `${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/cancel/`,
-  CREATE_BOOKING: `${import.meta.env.VITE_API_BASE_URL}/booking/`,
-  BOOKING_STATS: (userId) => `${import.meta.env.VITE_API_BASE_URL}/user/${userId}/booking-stats/`
-};
 
 // Payment Modal Component
 const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
@@ -22,10 +14,15 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
 
   if (!isOpen) return null;
 
-  const handlePayment = (e) => {
+  const handlePayment = async (e) => {
     e.preventDefault();
-    toast.success('Payment processed successfully!');
-    onClose();
+    try {
+      // Add payment processing logic here
+      toast.success('Payment processed successfully!');
+      onClose();
+    } catch (error) {
+      toast.error('Payment failed: ' + error.message);
+    }
   };
 
   return (
@@ -35,18 +32,16 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
           <h3 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
             Payment Details
           </h3>
-          <button
-            onClick={onClose}
-            className={`${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <span className="sr-only">Close</span>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         <div className="mb-4">
-          <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          <p className={isDark ? 'text-gray-300' : 'text-gray-600'}>
             Amount to Pay: <span className="font-bold">₹{amount}</span>
           </p>
         </div>
@@ -92,7 +87,7 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
                 className={`w-full px-3 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-gray-700 border-gray-600 text-gray-100'
-                    : 'border-gray-300 text-gray-900'
+                    : 'bg-white border-gray-300 text-gray-900'
                 } focus:ring-indigo-500 focus:border-indigo-500`}
                 required
               />
@@ -111,7 +106,7 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
                   className={`w-full px-3 py-2 rounded-lg border ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-gray-100'
-                      : 'border-gray-300 text-gray-900'
+                      : 'bg-white border-gray-300 text-gray-900'
                   } focus:ring-indigo-500 focus:border-indigo-500`}
                   required
                 />
@@ -136,7 +131,7 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
                     className={`w-full px-3 py-2 rounded-lg border ${
                       isDark
                         ? 'bg-gray-700 border-gray-600 text-gray-100'
-                        : 'border-gray-300 text-gray-900'
+                        : 'bg-white border-gray-300 text-gray-900'
                     } focus:ring-indigo-500 focus:border-indigo-500`}
                     required
                   />
@@ -153,7 +148,7 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
                     className={`w-full px-3 py-2 rounded-lg border ${
                       isDark
                         ? 'bg-gray-700 border-gray-600 text-gray-100'
-                        : 'border-gray-300 text-gray-900'
+                        : 'bg-white border-gray-300 text-gray-900'
                     } focus:ring-indigo-500 focus:border-indigo-500`}
                     required
                   />
@@ -171,7 +166,7 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
                   className={`w-full px-3 py-2 rounded-lg border ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-gray-100'
-                      : 'border-gray-300 text-gray-900'
+                      : 'bg-white border-gray-300 text-gray-900'
                   } focus:ring-indigo-500 focus:border-indigo-500`}
                   required
                 />
@@ -182,11 +177,7 @@ const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark }) => {
           <div className="mt-6">
             <button
               type="submit"
-              className={`w-full py-2 px-4 rounded-lg ${
-                isDark
-                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              } transition-colors duration-200`}
+              className="w-full py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200"
             >
               Pay ₹{amount}
             </button>
@@ -203,12 +194,14 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, message, isDark }) => 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className={`${isDark ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'} rounded-lg p-6 max-w-sm w-full`}>
-        <h3 className="text-lg font-semibold mb-4">Confirm Cancellation</h3>
-        <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'} mb-6`}>{message}</p>
+      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 max-w-sm w-full`}>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+          Confirm Cancellation
+        </h3>
+        <p className={`mb-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{message}</p>
         <div className="flex justify-end space-x-4">
           <button
-            className={`px-4 py-2 ${isDark ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800'} font-medium`}
+            className={`px-4 py-2 ${isDark ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800'}`}
             onClick={onClose}
           >
             Keep Booking
@@ -229,13 +222,15 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, message, isDark }) => 
 const UserBookings = ({ token, userId }) => {
   const { isDark } = useTheme();
   const [bookings, setBookings] = useState([]);
+  const [bookingStats, setBookingStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, bookingId: null });
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, amount: 0, bookingId: null });
-  const [currentDateTime, setCurrentDateTime] = useState('2025-06-07 14:28:37');
+  const [currentDateTime, setCurrentDateTime] = useState('2025-06-07 15:32:49');
   const [username] = useState(localStorage.getItem('username') || 'Gps-Gaurav');
 
+  // Update current time
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -245,10 +240,32 @@ const UserBookings = ({ token, userId }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // Fetch booking stats
+  const fetchBookingStats = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/user/${userId}/booking-stats/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch booking stats');
+      }
+
+      const data = await response.json();
+      setBookingStats(data);
+    } catch (err) {
+      console.error('Error fetching booking stats:', err);
+    }
+  };
+
+  // Fetch bookings
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8000/api/user/${userId}/bookings/`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/user/${userId}/bookings/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
@@ -271,21 +288,27 @@ const UserBookings = ({ token, userId }) => {
     }
   };
 
+  // Initial data fetch
   useEffect(() => {
     if (token && userId) {
-      fetchBookings();
+      Promise.all([
+        fetchBookings(),
+        fetchBookingStats()
+      ]);
     }
   }, [token, userId]);
+
+  // Handle booking cancellation
   const handleCancelBooking = async (bookingId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/bookings/${bookingId}/cancel/`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/cancel/`, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          cancellation_reason: 'Cancelled by user'
+          reason: 'Cancelled by user'
         })
       });
 
@@ -294,7 +317,10 @@ const UserBookings = ({ token, userId }) => {
         throw new Error(errorData.detail || 'Failed to cancel booking');
       }
 
-      await fetchBookings(); // Refresh the bookings list
+      await Promise.all([
+        fetchBookings(),
+        fetchBookingStats()
+      ]);
       toast.success('Booking cancelled successfully');
     } catch (err) {
       console.error('Error cancelling booking:', err);
@@ -303,18 +329,11 @@ const UserBookings = ({ token, userId }) => {
       setConfirmDialog({ isOpen: false, bookingId: null });
     }
   };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 text-center">
-        <p className={`font-medium ${isDark ? 'text-red-400' : 'text-red-500'}`}>{error}</p>
       </div>
     );
   }
@@ -333,6 +352,34 @@ const UserBookings = ({ token, userId }) => {
         </div>
       </div>
 
+      {/* Booking Stats */}
+      {bookingStats && (
+        <div className={`mb-6 p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-md`}>
+          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+            Booking Statistics
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Total Bookings</p>
+              <p className="text-xl font-bold">{bookingStats.total_bookings}</p>
+            </div>
+            <div>
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Active Bookings</p>
+              <p className="text-xl font-bold text-green-500">{bookingStats.active_bookings}</p>
+            </div>
+            <div>
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Cancelled Bookings</p>
+              <p className="text-xl font-bold text-red-500">{bookingStats.cancelled_bookings}</p>
+            </div>
+            <div>
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Past Bookings</p>
+              <p className="text-xl font-bold text-blue-500">{bookingStats.past_bookings}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bookings List */}
       <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
         Your Bookings
       </h2>
@@ -357,25 +404,45 @@ const UserBookings = ({ token, userId }) => {
                     Bus Number: {booking.bus.number}
                   </p>
                   <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-                    Route: {booking.bus.origin} → {booking.bus.destination}
+                    Route: {booking.origin} → {booking.destination}
+                  </p>
+                  <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                    Time: {booking.bus.start_time} → {booking.bus.reach_time}
                   </p>
                   <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
                     Seat: {booking.seat.seat_number}
                   </p>
-                  <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-                    Status: {booking.status}
+                  <p className={`${
+                    booking.status === 'cancelled' ? 'text-red-500' : 
+                    booking.status === 'confirmed' ? 'text-green-500' : 
+                    'text-yellow-500'
+                  }`}>
+                    Status: {booking.status_display}
                   </p>
                   <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-                    Amount: ₹{booking.bus.price}
+                    Booking Time: {new Date(booking.booking_time).toLocaleString()}
+                  </p>
+                  {booking.cancelled_at && (
+                    <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                      Cancelled At: {new Date(booking.cancelled_at).toLocaleString()}
+                    </p>
+                  )}
+                  {booking.cancellation_reason && (
+                    <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                      Cancellation Reason: {booking.cancellation_reason}
+                    </p>
+                  )}
+                  <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                    Amount: ₹{booking.price}
                   </p>
                 </div>
                 <div className="flex space-x-2">
-                  {booking.status !== 'cancelled' && booking.status !== 'completed' && (
+                  {booking.can_cancel && (
                     <>
                       <button
                         onClick={() => setPaymentModal({
                           isOpen: true,
-                          amount: booking.bus.price,
+                          amount: booking.price,
                           bookingId: booking.id
                         })}
                         className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
@@ -400,6 +467,7 @@ const UserBookings = ({ token, userId }) => {
         </div>
       )}
 
+      {/* Modals */}
       <PaymentModal
         isOpen={paymentModal.isOpen}
         onClose={() => setPaymentModal({ isOpen: false, amount: 0, bookingId: null })}

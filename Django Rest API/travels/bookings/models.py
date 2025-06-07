@@ -118,10 +118,15 @@ class Booking(models.Model):
         if not self.can_cancel:
             raise ValueError("This booking cannot be cancelled")
         
+        # Update booking status
         self.status = 'cancelled'
         self.cancelled_at = timezone.now()
         self.cancellation_reason = reason
-        self.seat.cancel()
+        
+        # Free up the seat
+        if self.seat:
+            self.seat.cancel()
+        
         self.save()
         return True
 
