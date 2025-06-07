@@ -22,4 +22,5 @@ urlpatterns = [
     # New URLs for cancellation and stats
     path('bookings/<int:booking_id>/cancel/', CancelBookingView.as_view(), name='cancel-booking'),
     path('user/<int:user_id>/booking-stats/', booking_stats, name='booking-stats'),
+    
 ]

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Simple modal component
@@ -11,6 +11,7 @@ const Modal = ({ isOpen, onClose, title, children, isDark }) => {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
@@ -18,6 +19,7 @@ const Modal = ({ isOpen, onClose, title, children, isDark }) => {
         className={`relative rounded-lg shadow-lg p-6 max-w-md w-full ${
           isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
         }`}
+        onClick={e => e.stopPropagation()}
       >
         <button
           className="absolute top-3 right-3 text-xl font-bold"
@@ -41,86 +43,131 @@ const BusSeats = ({ token, isDark }) => {
   const [seats, setSeats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  
 
   // Fetch bus and seats data
   useEffect(() => {
     const fetchBus = async () => {
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
       try {
-        const res = await axios.get(`http://localhost:8000/api/buses/${busId}`);
-        setBus(res.data);
-        setSeats(res.data.seats || []);
-      } catch (err) {
+        setLoading(true);
+        const response = await axios.get(`http://localhost:8000/api/buses/${busId}/`, {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        setBus(response.data);
+        setSeats(response.data.seats || []);
+        setError(null);
+      } catch (error) {
+        console.error('Error fetching bus details:', error);
         setError('Failed to load bus details. Please try again later.');
+        toast.error('Failed to load bus details');
       } finally {
         setLoading(false);
       }
     };
+
     fetchBus();
-  }, [busId]);
+  }, [busId, token, navigate]);
 
   // Handle seat click
   const onSeatClick = (seat) => {
     if (!token) {
-      toast.error('Please login to book seats.');
+      toast.error('Please login to book seats');
       navigate('/login');
       return;
     }
-    setSelectedSeat(seat);
+
     if (!seat.is_booked) {
-     setBookingModalOpen(true);
-    } 
+      setSelectedSeat(seat);
+      setBookingModalOpen(true);
+    }
   };
 
   // Confirm booking
   const confirmBooking = async () => {
+    if (!selectedSeat) return;
+
     try {
-      await axios.post(
+      const response = await axios.post(
         'http://localhost:8000/api/booking/',
         { seat: selectedSeat.id },
-        { headers: { Authorization: `Token ${token}` } }
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          }
+        }
       );
 
       // Update local seat state
-      setSeats((prev) =>
-        prev.map((s) => (s.id === selectedSeat.id ? { ...s, is_booked: true } : s))
+      setSeats(prevSeats =>
+        prevSeats.map(seat =>
+          seat.id === selectedSeat.id ? { ...seat, is_booked: true } : seat
+        )
       );
 
       toast.success('Seat booked successfully!');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Booking failed');
-      if (err.response?.status === 401) navigate('/login');
-    } finally {
       setBookingModalOpen(false);
       setSelectedSeat(null);
+    } catch (error) {
+      console.error('Booking error:', error);
+      toast.error(error.response?.data?.error || 'Failed to book seat');
+      
+      if (error.response?.status === 401) {
+        navigate('/login');
+      }
     }
   };
 
-
-  if (loading)
+  if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
       </div>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
-      <div
-        className={`p-4 max-w-4xl mx-auto rounded ${
-          isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'
-        }`}
-      >
-        {error}
+      <div className={`container mx-auto p-6`}>
+        <div
+          className={`p-4 rounded-lg ${
+            isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'
+          }`}
+        >
+          <p className="font-medium">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className={`mt-4 px-4 py-2 rounded ${
+              isDark ? 'bg-red-800 hover:bg-red-700' : 'bg-red-200 hover:bg-red-300'
+            } transition-colors duration-200`}
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
+  }
+
+  if (!bus) {
+    return (
+      <div className={`container mx-auto p-6 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+        <p>No bus data available.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`container mx-auto p-6 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-  
       {/* Bus Details */}
       <section
         className={`mb-8 p-6 rounded-lg shadow ${
@@ -130,22 +177,25 @@ const BusSeats = ({ token, isDark }) => {
         <h2 className="text-2xl font-bold mb-4">Bus Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p>
+            <p className="mb-2">
               <strong>Name: </strong> {bus.bus_name}
             </p>
-            <p>
+            <p className="mb-2">
               <strong>Number: </strong> {bus.number}
             </p>
-            <p>
+            <p className="mb-2">
               <strong>Route: </strong> {bus.origin} → {bus.destination}
             </p>
           </div>
           <div>
-            <p>
+            <p className="mb-2">
               <strong>Departure: </strong> {bus.start_time}
             </p>
-            <p>
+            <p className="mb-2">
               <strong>Arrival: </strong> {bus.reach_time}
+            </p>
+            <p className="mb-2">
+              <strong>Price: </strong> ₹{bus.price}
             </p>
           </div>
         </div>
@@ -209,7 +259,6 @@ const BusSeats = ({ token, isDark }) => {
                     : 'bg-green-300 hover:bg-green-400'
                 }`}
                 disabled={seat.is_booked && !isSelected}
-                aria-pressed={isSelected}
                 aria-label={`Seat ${seat.seat_number} ${
                   seat.is_booked ? 'booked' : 'available'
                 }`}
@@ -231,39 +280,37 @@ const BusSeats = ({ token, isDark }) => {
         title="Confirm Booking"
         isDark={isDark}
       >
-        <p>
-          Confirm booking seat{' '}
-          <strong>{selectedSeat?.seat_number}</strong>?
-        </p>
-        <div className="mt-6 flex justify-end space-x-4">
-          <button
-            onClick={() => {
-              setBookingModalOpen(false);
-              setSelectedSeat(null);
-            }}
-            className={`px-4 py-2 rounded ${
-              isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
-            }`}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={confirmBooking}
-            className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            Confirm
-          </button>
+        <div className={isDark ? 'text-gray-200' : 'text-gray-800'}>
+          <p className="mb-4">
+            Are you sure you want to book seat{' '}
+            <strong>{selectedSeat?.seat_number}</strong>?
+          </p>
+          <p className="mb-4">
+            <strong>Price:</strong> ₹{bus?.price}
+          </p>
+          <div className="mt-6 flex justify-end space-x-4">
+            <button
+              onClick={() => {
+                setBookingModalOpen(false);
+                setSelectedSeat(null);
+              }}
+              className={`px-4 py-2 rounded ${
+                isDark 
+                  ? 'bg-gray-700 hover:bg-gray-600' 
+                  : 'bg-gray-200 hover:bg-gray-300'
+              }`}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmBooking}
+              className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Confirm Booking
+            </button>
+          </div>
         </div>
       </Modal>
-
-  
-
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        theme={isDark ? 'dark' : 'light'}
-        pauseOnHover
-      />
     </div>
   );
 };
