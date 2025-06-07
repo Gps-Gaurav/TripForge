@@ -70,62 +70,80 @@ class BookingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        seat_id = request.data.get('seat')
-        try:
-            seat = Seat.objects.select_for_update().get(id=seat_id)
-            
-            # Check if seat is already booked
-            if seat.is_booked:
-                return Response({
-                    'error': 'Seat already booked'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check if bus departure time hasn't passed
-            if seat.bus.departure_date < timezone.now():
-                return Response({
-                    'error': 'Cannot book seat for past departure'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            seat.is_booked = True
-            seat.save()
-
-            booking = Booking.objects.create(
-                user=request.user,
-                bus=seat.bus,
-                seat=seat,
-                status='confirmed'  # Add status field to track booking state
-            )
-            
-            serializer = BookingSerializer(booking)
-            return Response({
-                'message': 'Booking successful',
-                'booking': serializer.data
-            }, status=status.HTTP_201_CREATED)
-
-        except Seat.DoesNotExist:
-            return Response({
-                'error': 'Invalid seat ID'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        serializer = BookingCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
         
+        if serializer.is_valid():
+            try:
+                seat_id = serializer.validated_data['seat'].id
+                seat = Seat.objects.select_for_update().get(id=seat_id)
+                
+                # Check if seat is already booked
+                if seat.is_booked:
+                    return Response(
+                        {'error': 'Seat already booked'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Check if bus departure time hasn't passed
+                if seat.bus.departure_date < timezone.now():
+                    return Response(
+                        {'error': 'Cannot book seat for past departure'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Create the booking and update seat status
+                booking = serializer.save()
+                
+                # Return the full booking details
+                booking_serializer = BookingSerializer(booking)
+                return Response({
+                    'message': 'Booking successful',
+                    'booking': booking_serializer.data
+                }, status=status.HTTP_201_CREATED)
+                
+            except Seat.DoesNotExist:
+                return Response(
+                    {'error': 'Invalid seat ID'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
 class UserBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
+        # Verify user authorization
         if request.user.id != user_id:
-            return Response({
-                'error': 'Unauthorized to view these bookings'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {'error': 'Unauthorized to view these bookings'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
         
-        # Add status filter
+        # Get status filter
         status_filter = request.query_params.get('status', None)
-        bookings = Booking.objects.filter(user_id=user_id)
         
+        # Filter bookings
+        bookings = Booking.objects.filter(user_id=user_id)
         if status_filter:
             bookings = bookings.filter(status=status_filter)
+            
+        # Order by booking time
+        bookings = bookings.order_by('-booking_time')
 
         serializer = BookingSerializer(bookings, many=True)
         return Response(serializer.data)
-
 class CancelBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
