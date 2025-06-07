@@ -1,5 +1,3 @@
-
-# authicate, permission, token, status, response, generics, apiviews
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
@@ -8,39 +6,65 @@ from rest_framework.views import APIView
 from .serializers import UserRegisterSerializer, BusSerializer, BookingSerializer
 from rest_framework.response import Response
 from .models import Bus, Seat, Booking
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
 
 class RegisterView(APIView):
     def post(self, request):
-        serializer = UserRegisterSerializer(data= request.data)
+        serializer = UserRegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             token, created = Token.objects.get_or_create(user=user)
-            return Response({'token':token.key}, status= status.HTTP_201_CREATED)
+            return Response({
+                'token': token.key,
+                'user_id': user.id,
+                'message': 'Registration successful'
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class LoginView(APIView):
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
-        user = authenticate(username= username, password=password)
+        user = authenticate(username=username, password=password)
 
         if user:
             token, created = Token.objects.get_or_create(user=user)
             return Response({
-                'token':token.key,
-                'user_id': user.id
+                'token': token.key,
+                'user_id': user.id,
+                'username': user.username,
+                'message': 'Login successful'
             }, status=status.HTTP_200_OK)
-        else:
-            return Response({'error':'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-
+        return Response({
+            'error': 'Invalid credentials'
+        }, status=status.HTTP_401_UNAUTHORIZED)
 
 class BusListCreateView(generics.ListCreateAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Bus.objects.all()
+        # Add filtering options
+        departure = self.request.query_params.get('departure', None)
+        destination = self.request.query_params.get('destination', None)
+        date = self.request.query_params.get('date', None)
+
+        if departure:
+            queryset = queryset.filter(departure_city__icontains=departure)
+        if destination:
+            queryset = queryset.filter(destination_city__icontains=destination)
+        if date:
+            queryset = queryset.filter(departure_date=date)
+        
+        return queryset
 
 class BusDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
+    permission_classes = [IsAuthenticated]
 
 class BookingView(APIView):
     permission_classes = [IsAuthenticated]
@@ -48,30 +72,128 @@ class BookingView(APIView):
     def post(self, request):
         seat_id = request.data.get('seat')
         try:
-            seat = Seat.objects.get(id = seat_id)
+            seat = Seat.objects.select_for_update().get(id=seat_id)
+            
+            # Check if seat is already booked
             if seat.is_booked:
-                return Response({'error': 'Seat already booked'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    'error': 'Seat already booked'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if bus departure time hasn't passed
+            if seat.bus.departure_date < timezone.now():
+                return Response({
+                    'error': 'Cannot book seat for past departure'
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             seat.is_booked = True
             seat.save()
 
-            bookings = Booking.objects.create(
-                user = request.user,
-                bus = seat.bus,
-                seat = seat
+            booking = Booking.objects.create(
+                user=request.user,
+                bus=seat.bus,
+                seat=seat,
+                status='confirmed'  # Add status field to track booking state
             )
-            serializer = BookingSerializer(bookings)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+            serializer = BookingSerializer(booking)
+            return Response({
+                'message': 'Booking successful',
+                'booking': serializer.data
+            }, status=status.HTTP_201_CREATED)
+
         except Seat.DoesNotExist:
-            return Response({'error':'Invalid Seat ID'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'error': 'Invalid seat ID'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
 class UserBookingView(APIView):
-    permission_classes= [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
         if request.user.id != user_id:
-            return Response({'error':'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({
+                'error': 'Unauthorized to view these bookings'
+            }, status=status.HTTP_401_UNAUTHORIZED)
         
-        bookings = Booking.objects.filter(user_id= user_id)
+        # Add status filter
+        status_filter = request.query_params.get('status', None)
+        bookings = Booking.objects.filter(user_id=user_id)
+        
+        if status_filter:
+            bookings = bookings.filter(status=status_filter)
+
         serializer = BookingSerializer(bookings, many=True)
         return Response(serializer.data)
+
+class CancelBookingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, booking_id):
+        try:
+            booking = Booking.objects.get(
+                id=booking_id,
+                user=request.user
+            )
+
+            # Check if booking is already cancelled
+            if booking.status == 'cancelled':
+                return Response({
+                    'error': 'Booking is already cancelled'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if departure time has passed
+            if booking.bus.departure_date < timezone.now():
+                return Response({
+                    'error': 'Cannot cancel booking after departure'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update booking status and free up the seat
+            booking.status = 'cancelled'
+            booking.cancelled_at = timezone.now()
+            booking.save()
+
+            # Free up the seat
+            seat = booking.seat
+            seat.is_booked = False
+            seat.save()
+
+            return Response({
+                'message': 'Booking cancelled successfully'
+            }, status=status.HTTP_200_OK)
+
+        except Booking.DoesNotExist:
+            return Response({
+                'error': 'Booking not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+# Add API endpoint for booking stats
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def booking_stats(request, user_id):
+    if request.user.id != user_id:
+        return Response({
+            'error': 'Unauthorized to view these statistics'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+
+    total_bookings = Booking.objects.filter(user_id=user_id).count()
+    active_bookings = Booking.objects.filter(
+        user_id=user_id,
+        status='confirmed',
+        bus__departure_date__gt=timezone.now()
+    ).count()
+    past_bookings = Booking.objects.filter(
+        user_id=user_id,
+        bus__departure_date__lt=timezone.now()
+    ).count()
+    cancelled_bookings = Booking.objects.filter(
+        user_id=user_id,
+        status='cancelled'
+    ).count()
+
+    return Response({
+        'total_bookings': total_bookings,
+        'active_bookings': active_bookings,
+        'past_bookings': past_bookings,
+        'cancelled_bookings': cancelled_bookings
+    })
