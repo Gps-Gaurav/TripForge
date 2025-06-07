@@ -131,42 +131,36 @@ class CancelBookingView(APIView):
 
     def post(self, request, booking_id):
         try:
-            booking = Booking.objects.get(
-                id=booking_id,
-                user=request.user
+            booking = Booking.objects.get(id=booking_id, user=request.user)
+            
+            # Check if booking can be cancelled
+            if not booking.can_cancel:
+                return Response(
+                    {"detail": "This booking cannot be cancelled"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get cancellation reason from request
+            reason = request.data.get('cancellation_reason', 'Cancelled by user')
+            
+            # Cancel the booking
+            booking.cancel_booking(reason=reason)
+            
+            return Response(
+                {"detail": "Booking cancelled successfully"},
+                status=status.HTTP_200_OK
             )
-
-            # Check if booking is already cancelled
-            if booking.status == 'cancelled':
-                return Response({
-                    'error': 'Booking is already cancelled'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check if departure time has passed
-            if booking.bus.departure_date < timezone.now():
-                return Response({
-                    'error': 'Cannot cancel booking after departure'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            # Update booking status and free up the seat
-            booking.status = 'cancelled'
-            booking.cancelled_at = timezone.now()
-            booking.save()
-
-            # Free up the seat
-            seat = booking.seat
-            seat.is_booked = False
-            seat.save()
-
-            return Response({
-                'message': 'Booking cancelled successfully'
-            }, status=status.HTTP_200_OK)
-
+            
         except Booking.DoesNotExist:
-            return Response({
-                'error': 'Booking not found'
-            }, status=status.HTTP_404_NOT_FOUND)
-
+            return Response(
+                {"detail": "Booking not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 # Add API endpoint for booking stats
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
