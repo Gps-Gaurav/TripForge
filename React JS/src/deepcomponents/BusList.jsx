@@ -3,7 +3,6 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from 'react-toastify';
-import { busService } from '../services/api';
 
 const BusList = ({ token }) => {
   const { isDark } = useTheme();
@@ -13,31 +12,7 @@ const BusList = ({ token }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterOrigin, setFilterOrigin] = useState('');
   const [filterDestination, setFilterDestination] = useState('');
-  const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const navigate = useNavigate();
-
-  // Update current time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentDateTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Format date time to UTC
-  const formatDateTime = (date) => {
-    const pad = (num) => String(num).padStart(2, '0');
-    
-    const year = date.getUTCFullYear();
-    const month = pad(date.getUTCMonth() + 1);
-    const day = pad(date.getUTCDate());
-    const hours = pad(date.getUTCHours());
-    const minutes = pad(date.getUTCMinutes());
-    const seconds = pad(date.getUTCSeconds());
-
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-  };
 
   // Fetch buses
   useEffect(() => {
@@ -176,7 +151,7 @@ const BusList = ({ token }) => {
     }
 
     try {
-      const response = await axios.get(`http://localhost:8000/api/buses/${busId}`, {
+      await axios.get(`http://localhost:8000/api/buses/${busId}`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
@@ -234,11 +209,7 @@ const BusList = ({ token }) => {
 
   return (
     <div className={`container mx-auto px-4 py-8 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-      {/* Date Time Display */}
-      <div className={`text-center mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-        Current Date and Time (UTC): {formatDateTime(currentDateTime)}
-      </div>
-
+      
       <h1 className={`text-3xl font-bold mb-8 text-center ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
         Available Buses
       </h1>

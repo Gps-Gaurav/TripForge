@@ -1,7 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from datetime import timedelta
 
+def get_default_departure():
+    return timezone.now() + timedelta(days=1)
 class Bus(models.Model):
     bus_name = models.CharField(max_length=100)
     number = models.CharField(max_length=20, unique=True)
@@ -10,6 +13,7 @@ class Bus(models.Model):
     features = models.TextField()
     start_time = models.TimeField()
     reach_time = models.TimeField()
+    departure_date = models.DateTimeField(default=get_default_departure)
     no_of_seats = models.PositiveBigIntegerField()
     price = models.DecimalField(max_digits=8, decimal_places=2)
     # Add default values for new fields

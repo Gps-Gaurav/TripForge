@@ -221,84 +221,116 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, message, isDark }) => 
 // Main UserBookings Component
 const UserBookings = ({ token, userId }) => {
   const { isDark } = useTheme();
-  const [bookings, setBookings] = useState([]);
-  const [bookingStats, setBookingStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, bookingId: null });
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, amount: 0, bookingId: null });
-  const [currentDateTime, setCurrentDateTime] = useState('2025-06-07 15:32:49');
-  const [username] = useState(localStorage.getItem('username') || 'Gps-Gaurav');
-
-  // Update current time
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const formatted = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')}`;
-      setCurrentDateTime(formatted);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Fetch booking stats
+  const [bookings, setBookings] = useState([]);
+  const [bookingStats, setBookingStats] = useState(null);
   const fetchBookingStats = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/user/${userId}/booking-stats/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json'
+      console.log('Fetching stats for user:', userId); // Debug log
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/user/${userId}/booking-stats/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch booking stats');
-      }
+      );
 
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch booking stats');
+      }
+
+      console.log('Received stats:', data); // Debug log
       setBookingStats(data);
+      setError(null);
     } catch (err) {
       console.error('Error fetching booking stats:', err);
+      setError(err.message || 'Failed to load booking statistics');
+      setBookingStats(null);
     }
   };
 
-  // Fetch bookings
   const fetchBookings = async () => {
     try {
-      setLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/user/${userId}/bookings/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/user/${userId}/bookings/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
-      }
+      );
 
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch bookings');
+      }
+
       setBookings(data);
       setError(null);
     } catch (err) {
       console.error('Error fetching bookings:', err);
-      setError('Failed to load bookings');
-      toast.error('Failed to load bookings');
-    } finally {
-      setLoading(false);
+      setError(err.message || 'Failed to load bookings');
+      setBookings([]);
     }
   };
 
-  // Initial data fetch
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchBookings(),
+          fetchBookingStats()
+        ]);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err.message || 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (token && userId) {
-      Promise.all([
-        fetchBookings(),
-        fetchBookingStats()
-      ]);
+      fetchData();
     }
   }, [token, userId]);
 
-  // Handle booking cancellation
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className={`text-center p-4 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+          <p className="text-lg font-semibold mb-2">Error</p>
+          <p>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
   const handleCancelBooking = async (bookingId) => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/cancel/`, {
@@ -330,28 +362,9 @@ const UserBookings = ({ token, userId }) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
   return (
     <div className={`container mx-auto px-4 py-8 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-      {/* DateTime and User Banner */}
-      <div className={`mb-6 p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-md`}>
-        <div className="flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
-          <div className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-            Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {currentDateTime}
-          </div>
-          <div className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-            Current User's Login: {username}
-          </div>
-        </div>
-      </div>
-
+      
       {/* Booking Stats */}
       {bookingStats && (
         <div className={`mb-6 p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-md`}>

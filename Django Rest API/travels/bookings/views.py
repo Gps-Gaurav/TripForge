@@ -9,6 +9,89 @@ from .models import Bus, Seat, Booking
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 
+import logging
+
+logger = logging.getLogger(__name__)
+class UserBookingStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            # Check authorization
+            if request.user.id != user_id:
+                return Response({
+                    'error': 'Unauthorized to view these statistics'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Get current time
+            now = timezone.now()
+
+            # Get all bookings for the user
+            bookings = Booking.objects.filter(user_id=user_id)
+            
+            # Calculate stats
+            total_bookings = bookings.count()
+            active_bookings = bookings.filter(status='confirmed').count()
+            cancelled_bookings = bookings.filter(status='cancelled').count()
+            past_bookings = bookings.filter(status='completed').count()
+
+            stats = {
+                'total_bookings': total_bookings,
+                'active_bookings': active_bookings,
+                'cancelled_bookings': cancelled_bookings,
+                'past_bookings': past_bookings
+            }
+
+            return Response(stats)
+
+        except Exception as e:
+            logger.error(f"Error fetching booking stats for user {user_id}: {str(e)}")
+            return Response({
+                'error': f'An error occurred: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            # Log request details
+            logger.info(f"Fetching booking stats for user {user_id}")
+            
+            # Check authorization
+            if request.user.id != user_id:
+                return Response({
+                    'error': 'Unauthorized to view these statistics'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Get current time once to ensure consistency
+            now = timezone.now()
+
+            # Get all bookings for the user
+            bookings = Booking.objects.filter(user_id=user_id)
+            
+            # Calculate stats
+            stats = {
+                'total_bookings': bookings.count(),
+                'active_bookings': bookings.filter(
+                    status='confirmed',
+                    bus__departure_date__gt=now
+                ).count(),
+                'cancelled_bookings': bookings.filter(
+                    status='cancelled'
+                ).count(),
+                'past_bookings': bookings.filter(
+                    status='confirmed',
+                    bus__departure_date__lt=now
+                ).count()
+            }
+
+            logger.info(f"Successfully fetched stats for user {user_id}: {stats}")
+            return Response(stats)
+
+        except Exception as e:
+            logger.error(f"Error fetching booking stats for user {user_id}: {str(e)}")
+            return Response({
+                'error': f'An error occurred: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class RegisterView(APIView):
     def post(self, request):
         serializer = UserRegisterSerializer(data=request.data)
@@ -76,51 +159,33 @@ class BookingView(APIView):
         )
         
         if serializer.is_valid():
-            try:
-                seat_id = serializer.validated_data['seat'].id
-                seat = Seat.objects.select_for_update().get(id=seat_id)
-                
-                # Check if seat is already booked
-                if seat.is_booked:
-                    return Response(
-                        {'error': 'Seat already booked'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # Check if bus departure time hasn't passed
-                if seat.bus.departure_date < timezone.now():
-                    return Response(
-                        {'error': 'Cannot book seat for past departure'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # Create the booking and update seat status
-                booking = serializer.save()
-                
-                # Return the full booking details
-                booking_serializer = BookingSerializer(booking)
-                return Response({
-                    'message': 'Booking successful',
-                    'booking': booking_serializer.data
-                }, status=status.HTTP_201_CREATED)
-                
-            except Seat.DoesNotExist:
-                return Response(
-                    {'error': 'Invalid seat ID'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            except Exception as e:
-                return Response(
-                    {'error': str(e)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        
+            booking = serializer.save()
+            return Response(
+                BookingSerializer(booking).data,
+                status=status.HTTP_201_CREATED
+            )
         return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
 
 class UserBookingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        if request.user.id != user_id:
+            return Response({
+                'error': 'Unauthorized to view these bookings'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        status_filter = request.query_params.get('status', None)
+        bookings = Booking.objects.filter(user_id=user_id)
+        
+        if status_filter:
+            bookings = bookings.filter(status=status_filter)
+
+        serializer = BookingSerializer(bookings, many=True)
+        return Response(serializer.data)  
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
