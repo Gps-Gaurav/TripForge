@@ -153,22 +153,54 @@ class BookingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = BookingCreateSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        
-        if serializer.is_valid():
-            booking = serializer.save()
-            return Response(
-                BookingSerializer(booking).data,
-                status=status.HTTP_201_CREATED
-            )
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        try:
+            # Log the request data
+            logger.info(f"Booking request data: {request.data}")
 
+            # Validate input data
+            if not request.data.get('bus') or not request.data.get('seat'):
+                return Response({
+                    'error': 'Bus and seat information are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the bus and seat
+            try:
+                bus = Bus.objects.get(id=request.data['bus'])
+                seat = Seat.objects.get(id=request.data['seat'], bus=bus)
+            except (Bus.DoesNotExist, Seat.DoesNotExist) as e:
+                return Response({
+                    'error': 'Invalid bus or seat'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # Check if seat is available
+            if seat.is_booked:
+                return Response({
+                    'error': 'This seat is already booked'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create booking
+            booking = Booking.objects.create(
+                user=request.user,
+                bus=bus,
+                seat=seat,
+                status='confirmed'
+            )
+
+            # Mark seat as booked
+            seat.is_booked = True
+            seat.last_booked_at = timezone.now()
+            seat.last_booked_by = request.user
+            seat.save()
+
+            # Return booking details
+            serializer = BookingSerializer(booking)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"Error creating booking: {str(e)}")
+            return Response({
+                'error': f'Failed to create booking: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class UserBookingView(APIView):
     permission_classes = [IsAuthenticated]
 

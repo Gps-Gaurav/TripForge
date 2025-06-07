@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Bus, Seat, Booking
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -132,28 +133,30 @@ class BookingSerializer(serializers.ModelSerializer):
 class BookingCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
-        fields = ['seat']
+        fields = ['bus', 'seat']
 
-    def validate_seat(self, value):
-        if value.is_booked:
+    def validate(self, data):
+        if data['seat'].bus != data['bus']:
+            raise serializers.ValidationError("Seat does not belong to the selected bus")
+        if data['seat'].is_booked:
             raise serializers.ValidationError("This seat is already booked")
-        return value
+        return data
 
     def create(self, validated_data):
         user = self.context['request'].user
-        seat = validated_data['seat']
-        
-        # Book the seat
-        if not seat.book(user):
-            raise serializers.ValidationError("Failed to book the seat")
-            
-        # Create the booking
         booking = Booking.objects.create(
             user=user,
-            bus=seat.bus,
-            seat=seat,
+            bus=validated_data['bus'],
+            seat=validated_data['seat'],
             status='confirmed'
         )
+        
+        # Update seat status
+        seat = validated_data['seat']
+        seat.is_booked = True
+        seat.last_booked_at = timezone.now()
+        seat.last_booked_by = user
+        seat.save()
         
         return booking
 

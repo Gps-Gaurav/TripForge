@@ -94,34 +94,37 @@ const BusSeats = ({ token, isDark }) => {
 
   // Confirm booking
   const confirmBooking = async () => {
-    if (!selectedSeat) return;
+    if (!selectedSeat) {
+      toast.error('Please select a seat first');
+      return;
+    }
+
+    setLoading(true);
     try {
-      await axios.post(
-        'http://localhost:8000/api/booking/',
-        { seat: selectedSeat.id },
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/booking/`,
+        {
+          bus: bus.id,
+          seat: selectedSeat.id
+        },
         {
           headers: {
-            Authorization: `Token ${token}`,
-          },
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
       );
 
-      // Update local seat state
-      setSeats((prevSeats) =>
-        prevSeats.map((seat) =>
-          seat.id === selectedSeat.id ? { ...seat, is_booked: true } : seat
-        )
-      );
-      toast.success('Seat booked successfully!');
-      setBookingModalOpen(false);
-      setSelectedSeat(null);
+      if (response.status === 201) {
+        toast.success('Booking confirmed successfully!');
+        // Refresh the seat status or redirect to booking confirmation
+        window.location.reload();
+      }
     } catch (error) {
       console.error('Booking error:', error);
-      toast.error(error.response?.data?.error || 'Failed to book seat');
-      
-      if (error.response?.status === 401) {
-        navigate('/login');
-      }
+      toast.error(error.response?.data?.error || 'Failed to confirm booking');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -300,11 +303,16 @@ const BusSeats = ({ token, isDark }) => {
               Cancel
             </button>
             <button
-              onClick={confirmBooking}
-              className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              Confirm Booking
-            </button>
+        onClick={confirmBooking}
+        disabled={!selectedSeat || loading}
+        className={`mt-4 px-4 py-2 rounded ${
+          !selectedSeat || loading
+            ? 'bg-gray-400 cursor-not-allowed'
+            : 'bg-indigo-600 hover:bg-indigo-700'
+        } text-white`}
+      >
+        {loading ? 'Confirming...' : 'Confirm Booking'}
+      </button>
           </div>
         </div>
       </Modal>
