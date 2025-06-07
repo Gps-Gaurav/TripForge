@@ -77,7 +77,33 @@ const BusSeats = ({ token, isDark }) => {
 
     fetchBus();
   }, [busId, token, navigate]);
-
+  useEffect(() => {
+    fetchUpdatedSeats();
+    // Refresh seats every 30 seconds
+    const intervalId = setInterval(() => {
+      if (!loading) {
+        fetchUpdatedSeats();
+      }
+    }, 30000);
+  
+    return () => clearInterval(intervalId);
+  }, [loading, busId]);
+  const fetchUpdatedSeats = async () => {
+    try {
+      const response = await axios.get(`http://localhost:8000/api/buses/${busId}/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+      // Update both bus and seats data
+      setBus(response.data);
+      setSeats(response.data.seats || []);
+    } catch (error) {
+      console.error('Error fetching updated seats:', error);
+      toast.error('Failed to refresh seat data');
+    }
+  };
   // Handle seat click
   const onSeatClick = (seat) => {
     if (!token) {
@@ -85,8 +111,8 @@ const BusSeats = ({ token, isDark }) => {
       navigate('/login');
       return;
     }
-
-    if (!seat.is_booked) {
+  
+    if (!seat.is_booked || seat.status === 'cancelled') {
       setSelectedSeat(seat);
       setBookingModalOpen(true);
     }
@@ -98,13 +124,7 @@ const BusSeats = ({ token, isDark }) => {
       toast.error('Please select a seat first');
       return;
     }
-
-    if (!token) {
-      toast.error('Please login to book a seat');
-      navigate('/login');
-      return;
-    }
-
+  
     setLoading(true);
     try {
       const response = await axios.post(
@@ -120,18 +140,13 @@ const BusSeats = ({ token, isDark }) => {
           }
         }
       );
-
+  
       if (response.status === 201) {
-        // Close modal first
         setBookingModalOpen(false);
         setSelectedSeat(null);
-
-        // Show success toast with auto-refresh
-        toast.success('Booking confirmed successfully!', {
-          onClose: () => {
-            window.location.reload();
-          }
-        });
+        toast.success('Booking confirmed successfully!');
+        // Fetch updated seat data
+        await fetchUpdatedSeats();
       }
     } catch (error) {
       console.error('Booking error:', error);
@@ -146,7 +161,6 @@ const BusSeats = ({ token, isDark }) => {
       setLoading(false);
     }
   };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -258,34 +272,36 @@ const BusSeats = ({ token, isDark }) => {
 
         {/* Seats grid */}
         <div className="grid grid-cols-5 gap-4 max-w-md mx-auto">
-          {seats.map((seat) => {
-            const isSelected = selectedSeat?.id === seat.id;
-            return (
-              <button
-                key={seat.id}
-                onClick={() => onSeatClick(seat)}
-                className={`p-3 rounded-md font-semibold transition-colors ${
-                  isSelected
-                    ? isDark
-                      ? 'bg-yellow-600 text-black'
-                      : 'bg-yellow-300'
-                    : seat.is_booked
-                    ? isDark
-                      ? 'bg-red-700 text-red-200 cursor-not-allowed'
-                      : 'bg-red-300 text-red-900 cursor-not-allowed'
-                    : isDark
-                    ? 'bg-green-700 text-green-100 hover:bg-green-600'
-                    : 'bg-green-300 hover:bg-green-400'
-                }`}
-                disabled={seat.is_booked && !isSelected}
-                aria-label={`Seat ${seat.seat_number} ${
-                  seat.is_booked ? 'booked' : 'available'
-                }`}
-              >
-                {seat.seat_number}
-              </button>
-            );
-          })}
+        {seats.map((seat) => {
+    const isSelected = selectedSeat?.id === seat.id;
+    const isAvailable = !seat.is_booked || seat.status === 'cancelled';
+
+    return (
+      <button
+        key={seat.id}
+        onClick={() => isAvailable ? onSeatClick(seat) : null}
+        className={`p-3 rounded-md font-semibold transition-colors ${
+          isSelected
+            ? isDark
+              ? 'bg-yellow-600 text-black'
+              : 'bg-yellow-300'
+            : isAvailable
+            ? isDark
+              ? 'bg-green-700 text-green-100 hover:bg-green-600'
+              : 'bg-green-300 hover:bg-green-400'
+            : isDark
+            ? 'bg-red-700 text-red-200 cursor-not-allowed'
+            : 'bg-red-300 text-red-900 cursor-not-allowed'
+        }`}
+        disabled={!isAvailable}
+        aria-label={`Seat ${seat.seat_number} ${
+          isAvailable ? 'available' : 'booked'
+        }`}
+      >
+        {seat.seat_number}
+      </button>
+    );
+  })}
         </div>
       </section>
 
