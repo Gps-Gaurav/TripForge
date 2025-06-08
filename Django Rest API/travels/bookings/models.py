@@ -62,11 +62,11 @@ class Seat(models.Model):
         return False
 
     def cancel(self):
-        if self.is_booked:
-            self.is_booked = False
-            self.save()
-            return True
-        return False
+        self.is_booked = False
+        self.last_booked_at = None
+        self.last_booked_by = None
+        self.save()
+        return True
 
 class Booking(models.Model):
     STATUS_CHOICES = (
@@ -97,6 +97,7 @@ class Booking(models.Model):
             f"{self.user.username} - {self.bus.bus_name} - "
             f"Seat {self.seat.seat_number} ({self.status})"
         )
+        
 
     @property
     def price(self):

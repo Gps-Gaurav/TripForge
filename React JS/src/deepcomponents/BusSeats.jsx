@@ -16,9 +16,8 @@ const Modal = ({ isOpen, onClose, title, children, isDark }) => {
       aria-modal="true"
     >
       <div
-        className={`relative rounded-lg shadow-lg p-6 max-w-md w-full ${
-          isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-        }`}
+        className={`relative rounded-lg shadow-lg p-6 max-w-md w-full ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+          }`}
         onClick={e => e.stopPropagation()}
       >
         <button
@@ -62,7 +61,7 @@ const BusSeats = ({ token, isDark }) => {
             'Content-Type': 'application/json',
           }
         });
-        
+
         setBus(response.data);
         setSeats(response.data.seats || []);
         setError(null);
@@ -85,7 +84,7 @@ const BusSeats = ({ token, isDark }) => {
         fetchUpdatedSeats();
       }
     }, 30000);
-  
+
     return () => clearInterval(intervalId);
   }, [loading, busId]);
   const fetchUpdatedSeats = async () => {
@@ -111,7 +110,7 @@ const BusSeats = ({ token, isDark }) => {
       navigate('/login');
       return;
     }
-  
+
     if (!seat.is_booked || seat.status === 'cancelled') {
       setSelectedSeat(seat);
       setBookingModalOpen(true);
@@ -124,7 +123,7 @@ const BusSeats = ({ token, isDark }) => {
       toast.error('Please select a seat first');
       return;
     }
-  
+
     setLoading(true);
     try {
       const response = await axios.post(
@@ -140,7 +139,7 @@ const BusSeats = ({ token, isDark }) => {
           }
         }
       );
-  
+
       if (response.status === 201) {
         setBookingModalOpen(false);
         setSelectedSeat(null);
@@ -150,12 +149,12 @@ const BusSeats = ({ token, isDark }) => {
       }
     } catch (error) {
       console.error('Booking error:', error);
-      const errorMessage = 
+      const errorMessage =
         error.response?.data?.error ||
         error.response?.data?.detail ||
         error.response?.data?.message ||
         'Failed to confirm booking';
-      
+
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -173,16 +172,14 @@ const BusSeats = ({ token, isDark }) => {
     return (
       <div className={`container mx-auto p-6`}>
         <div
-          className={`p-4 rounded-lg ${
-            isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'
-          }`}
+          className={`p-4 rounded-lg ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'
+            }`}
         >
           <p className="font-medium">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className={`mt-4 px-4 py-2 rounded ${
-              isDark ? 'bg-red-800 hover:bg-red-700' : 'bg-red-200 hover:bg-red-300'
-            } transition-colors duration-200`}
+            className={`mt-4 px-4 py-2 rounded ${isDark ? 'bg-red-800 hover:bg-red-700' : 'bg-red-200 hover:bg-red-300'
+              } transition-colors duration-200`}
           >
             Try Again
           </button>
@@ -203,42 +200,47 @@ const BusSeats = ({ token, isDark }) => {
     <div className={`container mx-auto p-6 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
       {/* Bus Details */}
       <section
-        className={`mb-8 p-6 rounded-lg shadow ${
-          isDark ? 'bg-gray-800' : 'bg-white'
-        }`}
-      >
-        <h2 className="text-2xl font-bold mb-4">Bus Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="mb-2">
-              <strong>Name: </strong> {bus.bus_name}
-            </p>
-            <p className="mb-2">
-              <strong>Number: </strong> {bus.number}
-            </p>
-            <p className="mb-2">
-              <strong>Route: </strong> {bus.origin} → {bus.destination}
-            </p>
-          </div>
-          <div>
-            <p className="mb-2">
-              <strong>Departure: </strong> {bus.start_time}
-            </p>
-            <p className="mb-2">
-              <strong>Arrival: </strong> {bus.reach_time}
-            </p>
-            <p className="mb-2">
-              <strong>Price: </strong> ₹{bus.price}
-            </p>
-          </div>
-        </div>
-      </section>
+  className={`mb-8 p-6 rounded-lg shadow ${
+    isDark ? 'bg-gray-800' : 'bg-white'
+  }`}
+>
+  <h2 className="text-2xl font-bold mb-4">Bus Details</h2>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <p className="mb-2">
+        <strong>Name: </strong> {bus.bus_name}
+      </p>
+      <p className="mb-2">
+        <strong>Number: </strong> {bus.number}
+      </p>
+      <p className="mb-2">
+        <strong>Route: </strong> {bus.origin} → {bus.destination}
+      </p>
+      {/* Add this new section for features */}
+      {bus.features && (
+        <p className="mb-2">
+          <strong>Features: </strong> {bus.features}
+        </p>
+      )}
+    </div>
+    <div>
+      <p className="mb-2">
+        <strong>Departure: </strong> {bus.start_time}
+      </p>
+      <p className="mb-2">
+        <strong>Arrival: </strong> {bus.reach_time}
+      </p>
+      <p className="mb-2">
+        <strong>Price: </strong> ₹{bus.price}
+      </p>
+    </div>
+  </div>
+</section>
 
       {/* Seat selection */}
       <section
-        className={`p-6 rounded-lg shadow ${
-          isDark ? 'bg-gray-800' : 'bg-white'
-        }`}
+        className={`p-6 rounded-lg shadow ${isDark ? 'bg-gray-800' : 'bg-white'
+          }`}
       >
         <h2 className="text-2xl font-bold mb-6">Select Your Seat</h2>
 
@@ -246,25 +248,22 @@ const BusSeats = ({ token, isDark }) => {
         <div className="flex space-x-6 mb-6">
           <div className="flex items-center space-x-2">
             <div
-              className={`w-5 h-5 rounded ${
-                isDark ? 'bg-green-600' : 'bg-green-400'
-              }`}
+              className={`w-5 h-5 rounded ${isDark ? 'bg-green-600' : 'bg-green-400'
+                }`}
             />
             <span>Available</span>
           </div>
           <div className="flex items-center space-x-2">
             <div
-              className={`w-5 h-5 rounded ${
-                isDark ? 'bg-red-700' : 'bg-red-400'
-              }`}
+              className={`w-5 h-5 rounded ${isDark ? 'bg-red-700' : 'bg-red-400'
+                }`}
             />
             <span>Booked</span>
           </div>
           <div className="flex items-center space-x-2">
             <div
-              className={`w-5 h-5 rounded ${
-                isDark ? 'bg-yellow-600' : 'bg-yellow-400'
-              }`}
+              className={`w-5 h-5 rounded ${isDark ? 'bg-yellow-600' : 'bg-yellow-400'
+                }`}
             />
             <span>Selected</span>
           </div>
@@ -272,36 +271,34 @@ const BusSeats = ({ token, isDark }) => {
 
         {/* Seats grid */}
         <div className="grid grid-cols-5 gap-4 max-w-md mx-auto">
-        {seats.map((seat) => {
-    const isSelected = selectedSeat?.id === seat.id;
-    const isAvailable = !seat.is_booked || seat.status === 'cancelled';
+          {seats.map((seat) => {
+            const isSelected = selectedSeat?.id === seat.id;
+            const isAvailable = !seat.is_booked || seat.status === 'cancelled';
 
-    return (
-      <button
-        key={seat.id}
-        onClick={() => isAvailable ? onSeatClick(seat) : null}
-        className={`p-3 rounded-md font-semibold transition-colors ${
-          isSelected
-            ? isDark
-              ? 'bg-yellow-600 text-black'
-              : 'bg-yellow-300'
-            : isAvailable
-            ? isDark
-              ? 'bg-green-700 text-green-100 hover:bg-green-600'
-              : 'bg-green-300 hover:bg-green-400'
-            : isDark
-            ? 'bg-red-700 text-red-200 cursor-not-allowed'
-            : 'bg-red-300 text-red-900 cursor-not-allowed'
-        }`}
-        disabled={!isAvailable}
-        aria-label={`Seat ${seat.seat_number} ${
-          isAvailable ? 'available' : 'booked'
-        }`}
-      >
-        {seat.seat_number}
-      </button>
-    );
-  })}
+            return (
+              <button
+                key={seat.id}
+                onClick={() => isAvailable ? onSeatClick(seat) : null}
+                className={`p-3 rounded-md font-semibold transition-colors ${isSelected
+                    ? isDark
+                      ? 'bg-yellow-600 text-black'
+                      : 'bg-yellow-300'
+                    : isAvailable
+                      ? isDark
+                        ? 'bg-green-700 text-green-100 hover:bg-green-600'
+                        : 'bg-green-300 hover:bg-green-400'
+                      : isDark
+                        ? 'bg-red-700 text-red-200 cursor-not-allowed'
+                        : 'bg-red-300 text-red-900 cursor-not-allowed'
+                  }`}
+                disabled={!isAvailable}
+                aria-label={`Seat ${seat.seat_number} ${isAvailable ? 'available' : 'booked'
+                  }`}
+              >
+                {seat.seat_number}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -329,22 +326,20 @@ const BusSeats = ({ token, isDark }) => {
                 setBookingModalOpen(false);
                 setSelectedSeat(null);
               }}
-              className={`px-4 py-2 rounded ${
-                isDark 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+              className={`px-4 py-2 rounded ${isDark
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-200'
                   : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-              }`}
+                }`}
             >
               Cancel
             </button>
             <button
               onClick={confirmBooking}
               disabled={!selectedSeat || loading}
-              className={`px-4 py-2 rounded ${
-                !selectedSeat || loading
+              className={`px-4 py-2 rounded ${!selectedSeat || loading
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-indigo-600 hover:bg-indigo-700'
-              } text-white`}
+                } text-white`}
             >
               {loading ? (
                 <span className="flex items-center">
