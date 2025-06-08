@@ -27,7 +27,7 @@ const BusList = ({ token }) => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await axios.get('http://localhost:8000/api/buses/', {
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/buses/`, {
           headers: {
             'Authorization': `Token ${token}`,
             'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ const BusList = ({ token }) => {
     }
 
     try {
-      await axios.get(`http://localhost:8000/api/buses/${busId}`, {
+      await axios.get(`${import.meta.env.VITE_API_BASE_URL}/buses/${busId}`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',

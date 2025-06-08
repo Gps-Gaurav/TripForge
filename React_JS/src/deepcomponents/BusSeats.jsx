@@ -55,7 +55,7 @@ const BusSeats = ({ token, isDark }) => {
 
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/buses/${busId}`, {
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/buses/${busId}`, {
           headers: {
             'Authorization': `Token ${token}`,
             'Content-Type': 'application/json',
@@ -89,7 +89,7 @@ const BusSeats = ({ token, isDark }) => {
   }, [loading, busId]);
   const fetchUpdatedSeats = async () => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/buses/${busId}/`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/buses/${busId}/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
