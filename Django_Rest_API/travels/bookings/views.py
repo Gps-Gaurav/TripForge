@@ -1,109 +1,65 @@
+# views.py with Clean Code & Hinglish Comments
+
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from rest_framework import status, generics
 from rest_framework.views import APIView
-from .serializers import UserRegisterSerializer, BusSerializer, BookingSerializer
 from rest_framework.response import Response
-from .models import Bus, Seat, Booking
-from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
+from django.utils import timezone
+
+from .serializers import (
+    UserRegisterSerializer,
+    BusSerializer,
+    BookingSerializer
+)
+from .models import Bus, Seat, Booking
 
 import logging
-
 logger = logging.getLogger(__name__)
+
+# 📊 User Booking Stats API
 class UserBookingStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
         try:
-            # Check authorization
-            if request.user.id != user_id:
-                return Response({
-                    'error': 'Unauthorized to view these statistics'
-                }, status=status.HTTP_401_UNAUTHORIZED)
-
-            # Get current time
-            now = timezone.now()
-
-            # Get all bookings for the user
-            bookings = Booking.objects.filter(user_id=user_id)
-            
-            # Calculate stats
-            total_bookings = bookings.count()
-            active_bookings = bookings.filter(status='confirmed').count()
-            cancelled_bookings = bookings.filter(status='cancelled').count()
-            past_bookings = bookings.filter(status='completed').count()
-
-            stats = {
-                'total_bookings': total_bookings,
-                'active_bookings': active_bookings,
-                'cancelled_bookings': cancelled_bookings,
-                'past_bookings': past_bookings
-            }
-
-            return Response(stats)
-
-        except Exception as e:
-            logger.error(f"Error fetching booking stats for user {user_id}: {str(e)}")
-            return Response({
-                'error': f'An error occurred: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, user_id):
-        try:
-            # Log request details
             logger.info(f"Fetching booking stats for user {user_id}")
-            
-            # Check authorization
+
             if request.user.id != user_id:
-                return Response({
-                    'error': 'Unauthorized to view these statistics'
-                }, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Unauthorized to view these statistics'}, status=status.HTTP_401_UNAUTHORIZED)
 
-            # Get current time once to ensure consistency
             now = timezone.now()
-
-            # Get all bookings for the user
             bookings = Booking.objects.filter(user_id=user_id)
-            
-            # Calculate stats
+
             stats = {
                 'total_bookings': bookings.count(),
-                'active_bookings': bookings.filter(
-                    status='confirmed',
-                    bus__departure_date__gt=now
-                ).count(),
-                'cancelled_bookings': bookings.filter(
-                    status='cancelled'
-                ).count(),
-                'past_bookings': bookings.filter(
-                    status='confirmed',
-                    bus__departure_date__lt=now
-                ).count()
+                'active_bookings': bookings.filter(status='confirmed', bus__departure_date__gt=now).count(),
+                'cancelled_bookings': bookings.filter(status='cancelled').count(),
+                'past_bookings': bookings.filter(status='confirmed', bus__departure_date__lt=now).count()
             }
 
-            logger.info(f"Successfully fetched stats for user {user_id}: {stats}")
+            logger.info(f"Stats for user {user_id}: {stats}")
             return Response(stats)
 
         except Exception as e:
-            logger.error(f"Error fetching booking stats for user {user_id}: {str(e)}")
-            return Response({
-                'error': f'An error occurred: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Error fetching booking stats: {str(e)}")
+            return Response({'error': f'Error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# 📝 User Register API
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         try:
-            logger.info(f"Registration attempt with data: {request.data}")
+            logger.info(f"Registration data: {request.data}")
             serializer = UserRegisterSerializer(data=request.data)
             
             if serializer.is_valid():
                 user = serializer.save()
-                token, created = Token.objects.get_or_create(user=user)
-                
+                token, _ = Token.objects.get_or_create(user=user)
+
                 return Response({
                     "status": "success",
                     "message": "Registration successful",
@@ -116,20 +72,15 @@ class RegisterView(APIView):
                     },
                     "token": token.key
                 }, status=status.HTTP_201_CREATED)
-            
-            logger.error(f"Registration validation errors: {serializer.errors}")
-            return Response({
-                "status": "error",
-                "details": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
+
+            logger.error(f"Validation failed: {serializer.errors}")
+            return Response({"status": "error", "details": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
             logger.error(f"Registration error: {str(e)}")
-            return Response({
-                "status": "error",
-                "message": str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# 🔐 Login API
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -139,19 +90,14 @@ class LoginView(APIView):
             password = request.data.get('password')
 
             if not username or not password:
-                return Response({
-                    'error': 'Please provide both username and password'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Username and password required'}, status=status.HTTP_400_BAD_REQUEST)
 
             user = authenticate(username=username, password=password)
 
             if not user:
-                return Response({
-                    'error': 'Invalid credentials'
-                }, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
-            token, created = Token.objects.get_or_create(user=user)
-
+            token, _ = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
                 'user': {
@@ -165,10 +111,9 @@ class LoginView(APIView):
 
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
-            return Response({
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# 🚌 List & Create Buses
 class BusListCreateView(generics.ListCreateAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
@@ -176,10 +121,9 @@ class BusListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Bus.objects.all()
-        # Add filtering options
-        departure = self.request.query_params.get('departure', None)
-        destination = self.request.query_params.get('destination', None)
-        date = self.request.query_params.get('date', None)
+        departure = self.request.query_params.get('departure')
+        destination = self.request.query_params.get('destination')
+        date = self.request.query_params.get('date')
 
         if departure:
             queryset = queryset.filter(departure_city__icontains=departure)
@@ -187,44 +131,35 @@ class BusListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(destination_city__icontains=destination)
         if date:
             queryset = queryset.filter(departure_date=date)
-        
+
         return queryset
 
+# 🚌 Retrieve, Update, Delete Bus
 class BusDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
     permission_classes = [IsAuthenticated]
 
+# ✅ Create Booking
 class BookingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
-            # Log the request data
-            logger.info(f"Booking request data: {request.data}")
+            logger.info(f"Booking request: {request.data}")
 
-            # Validate input data
             if not request.data.get('bus') or not request.data.get('seat'):
-                return Response({
-                    'error': 'Bus and seat information are required'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Bus and seat are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Get the bus and seat
             try:
                 bus = Bus.objects.get(id=request.data['bus'])
                 seat = Seat.objects.get(id=request.data['seat'], bus=bus)
-            except (Bus.DoesNotExist, Seat.DoesNotExist) as e:
-                return Response({
-                    'error': 'Invalid bus or seat'
-                }, status=status.HTTP_404_NOT_FOUND)
+            except (Bus.DoesNotExist, Seat.DoesNotExist):
+                return Response({'error': 'Invalid bus or seat'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Check if seat is available
             if seat.is_booked:
-                return Response({
-                    'error': 'This seat is already booked'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Seat already booked'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create booking
             booking = Booking.objects.create(
                 user=request.user,
                 bus=bus,
@@ -232,61 +167,36 @@ class BookingView(APIView):
                 status='confirmed'
             )
 
-            # Mark seat as booked
             seat.is_booked = True
             seat.last_booked_at = timezone.now()
             seat.last_booked_by = request.user
             seat.save()
 
-            # Return booking details
             serializer = BookingSerializer(booking)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            logger.error(f"Error creating booking: {str(e)}")
-            return Response({
-                'error': f'Failed to create booking: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Booking error: {str(e)}")
+            return Response({'error': f"Failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# 📄 Get all bookings for user
 class UserBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
         if request.user.id != user_id:
-            return Response({
-                'error': 'Unauthorized to view these bookings'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        
-        status_filter = request.query_params.get('status', None)
-        bookings = Booking.objects.filter(user_id=user_id)
-        
-        if status_filter:
-            bookings = bookings.filter(status=status_filter)
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        serializer = BookingSerializer(bookings, many=True)
-        return Response(serializer.data)  
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, user_id):
-        # Verify user authorization
-        if request.user.id != user_id:
-            return Response(
-                {'error': 'Unauthorized to view these bookings'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        
-        # Get status filter
-        status_filter = request.query_params.get('status', None)
-        
-        # Filter bookings
+        status_filter = request.query_params.get('status')
         bookings = Booking.objects.filter(user_id=user_id)
         if status_filter:
             bookings = bookings.filter(status=status_filter)
-            
-        # Order by booking time
+
         bookings = bookings.order_by('-booking_time')
-
         serializer = BookingSerializer(bookings, many=True)
         return Response(serializer.data)
+
+# ❌ Cancel Booking
 class CancelBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -295,17 +205,16 @@ class CancelBookingView(APIView):
             booking = Booking.objects.get(id=booking_id)
 
             if booking.user != request.user:
-                return Response({'detail': 'Not authorized to cancel this booking'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
             if not booking.can_cancel:
-                return Response({'detail': 'This booking cannot be cancelled'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'Cannot cancel this booking'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Cancel all associated seats
             if hasattr(booking, 'seats'):
-                for seat in booking.seats.all():  # assuming ManyToManyField or related_name='seats'
+                for seat in booking.seats.all():
                     seat.cancel()
             elif hasattr(booking, 'seat'):
-                booking.seat.cancel()  # assuming OneToOneField or ForeignKey
+                booking.seat.cancel()
 
             booking.status = 'cancelled'
             booking.cancelled_at = timezone.now()
@@ -318,33 +227,22 @@ class CancelBookingView(APIView):
             })
 
         except Booking.DoesNotExist:
-            return Response({'detail': f'Booking with id {booking_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-# Add API endpoint for booking stats
+
+# 📈 Booking Stats (Function-based API)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def booking_stats(request, user_id):
     if request.user.id != user_id:
-        return Response({
-            'error': 'Unauthorized to view these statistics'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
 
+    now = timezone.now()
     total_bookings = Booking.objects.filter(user_id=user_id).count()
-    active_bookings = Booking.objects.filter(
-        user_id=user_id,
-        status='confirmed',
-        bus__departure_date__gt=timezone.now()
-    ).count()
-    past_bookings = Booking.objects.filter(
-        user_id=user_id,
-        bus__departure_date__lt=timezone.now()
-    ).count()
-    cancelled_bookings = Booking.objects.filter(
-        user_id=user_id,
-        status='cancelled'
-    ).count()
+    active_bookings = Booking.objects.filter(user_id=user_id, status='confirmed', bus__departure_date__gt=now).count()
+    past_bookings = Booking.objects.filter(user_id=user_id, bus__departure_date__lt=now).count()
+    cancelled_bookings = Booking.objects.filter(user_id=user_id, status='cancelled').count()
 
     return Response({
         'total_bookings': total_bookings,
