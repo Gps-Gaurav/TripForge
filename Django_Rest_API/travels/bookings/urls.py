@@ -7,7 +7,6 @@ from .views import (
     BookingView, 
     BusDetailView,
     CancelBookingView,
-    booking_stats,
     UserBookingStatsView
 )
 

@@ -293,17 +293,19 @@ class CancelBookingView(APIView):
     def post(self, request, booking_id):
         try:
             booking = Booking.objects.get(id=booking_id)
-            
-            # Check if the booking belongs to the user
+
             if booking.user != request.user:
-                return Response({
-                    'detail': 'Not authorized to cancel this booking'
-                }, status=status.HTTP_403_FORBIDDEN)
+                return Response({'detail': 'Not authorized to cancel this booking'}, status=status.HTTP_403_FORBIDDEN)
 
             if not booking.can_cancel:
-                return Response({
-                    'detail': 'This booking cannot be cancelled'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'This booking cannot be cancelled'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Cancel all associated seats
+            if hasattr(booking, 'seats'):
+                for seat in booking.seats.all():  # assuming ManyToManyField or related_name='seats'
+                    seat.cancel()
+            elif hasattr(booking, 'seat'):
+                booking.seat.cancel()  # assuming OneToOneField or ForeignKey
 
             booking.status = 'cancelled'
             booking.cancelled_at = timezone.now()
@@ -316,13 +318,9 @@ class CancelBookingView(APIView):
             })
 
         except Booking.DoesNotExist:
-            return Response({
-                'detail': f'Booking with id {booking_id} not found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': f'Booking with id {booking_id} not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({
-                'detail': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)           
+            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
 # Add API endpoint for booking stats
 @api_view(['GET'])
