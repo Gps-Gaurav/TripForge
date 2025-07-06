@@ -1,5 +1,3 @@
-# views.py with Clean Code & Hinglish Comments
-
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
@@ -19,16 +17,14 @@ from .models import Bus, Seat, Booking
 import logging
 logger = logging.getLogger(__name__)
 
-# 📊 User Booking Stats API
+# User ke booking stats laane wala API (GET)
 class UserBookingStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
         try:
-            logger.info(f"Fetching booking stats for user {user_id}")
-
             if request.user.id != user_id:
-                return Response({'error': 'Unauthorized to view these statistics'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
 
             now = timezone.now()
             bookings = Booking.objects.filter(user_id=user_id)
@@ -40,22 +36,18 @@ class UserBookingStatsView(APIView):
                 'past_bookings': bookings.filter(status='confirmed', bus__departure_date__lt=now).count()
             }
 
-            logger.info(f"Stats for user {user_id}: {stats}")
             return Response(stats)
-
         except Exception as e:
-            logger.error(f"Error fetching booking stats: {str(e)}")
-            return Response({'error': f'Error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Booking stats error: {str(e)}")
+            return Response({'error': f'Error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# 📝 User Register API
+# User registration API
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         try:
-            logger.info(f"Registration data: {request.data}")
             serializer = UserRegisterSerializer(data=request.data)
-            
             if serializer.is_valid():
                 user = serializer.save()
                 token, _ = Token.objects.get_or_create(user=user)
@@ -73,14 +65,12 @@ class RegisterView(APIView):
                     "token": token.key
                 }, status=status.HTTP_201_CREATED)
 
-            logger.error(f"Validation failed: {serializer.errors}")
             return Response({"status": "error", "details": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
         except Exception as e:
             logger.error(f"Registration error: {str(e)}")
             return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# 🔐 Login API
+# User login API
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -93,7 +83,6 @@ class LoginView(APIView):
                 return Response({'error': 'Username and password required'}, status=status.HTTP_400_BAD_REQUEST)
 
             user = authenticate(username=username, password=password)
-
             if not user:
                 return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -108,17 +97,17 @@ class LoginView(APIView):
                     'last_name': user.last_name
                 }
             })
-
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# 🚌 List & Create Buses
+# Bus list aur nayi bus create karne ke liye API
 class BusListCreateView(generics.ListCreateAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
     permission_classes = [IsAuthenticated]
 
+    # Filter bus list by departure, destination, date
     def get_queryset(self):
         queryset = Bus.objects.all()
         departure = self.request.query_params.get('departure')
@@ -126,28 +115,26 @@ class BusListCreateView(generics.ListCreateAPIView):
         date = self.request.query_params.get('date')
 
         if departure:
-            queryset = queryset.filter(departure_city__icontains=departure)
+            queryset = queryset.filter(origin__icontains=departure)
         if destination:
-            queryset = queryset.filter(destination_city__icontains=destination)
+            queryset = queryset.filter(destination__icontains=destination)
         if date:
             queryset = queryset.filter(departure_date=date)
 
         return queryset
 
-# 🚌 Retrieve, Update, Delete Bus
+# Ek bus ko detail me dekhna / update / delete
 class BusDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
     permission_classes = [IsAuthenticated]
 
-# ✅ Create Booking
+# Booking create karne ke liye API
 class BookingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
-            logger.info(f"Booking request: {request.data}")
-
             if not request.data.get('bus') or not request.data.get('seat'):
                 return Response({'error': 'Bus and seat are required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -179,7 +166,7 @@ class BookingView(APIView):
             logger.error(f"Booking error: {str(e)}")
             return Response({'error': f"Failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# 📄 Get all bookings for user
+# Kisi user ke saare bookings laane ke liye API
 class UserBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -189,6 +176,7 @@ class UserBookingView(APIView):
 
         status_filter = request.query_params.get('status')
         bookings = Booking.objects.filter(user_id=user_id)
+
         if status_filter:
             bookings = bookings.filter(status=status_filter)
 
@@ -196,7 +184,7 @@ class UserBookingView(APIView):
         serializer = BookingSerializer(bookings, many=True)
         return Response(serializer.data)
 
-# ❌ Cancel Booking
+# Booking cancel karne ka API
 class CancelBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -231,7 +219,7 @@ class CancelBookingView(APIView):
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# 📈 Booking Stats (Function-based API)
+# Booking statistics function-based view
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def booking_stats(request, user_id):

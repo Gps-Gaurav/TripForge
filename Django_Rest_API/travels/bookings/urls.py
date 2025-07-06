@@ -11,7 +11,7 @@ from .views import (
 )
 
 urlpatterns = [
-    # Existing URLs
+
     path('buses/', BusListCreateView.as_view(), name='buslist'),
     path('buses/<int:pk>/', BusDetailView.as_view(), name='bus-detail'),
     path('register/', RegisterView.as_view(), name='register'),
