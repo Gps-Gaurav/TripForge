@@ -4,10 +4,10 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.auth.password_validation import validate_password
 
-# 🚹 User Registration Serializer
+# User register karne ke liye serializer
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
-    password2 = serializers.CharField(write_only=True, required=True)  # Confirm password
+    password2 = serializers.CharField(write_only=True, required=True)  # Confirm password input
 
     class Meta:
         model = User
@@ -18,13 +18,13 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             'email': {'required': True}
         }
 
-    # ✅ Passwords match kar rahe hain ya nahi check karo
+    # Dono password match kar rahe hain ya nahi check karo
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
 
-    # ✅ Naya user create karo with hashed password
+    # Naya user create karo with hashed password
     def create(self, validated_data):
         user = User.objects.create(
             username=validated_data['username'],
@@ -32,23 +32,23 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name']
         )
-        user.set_password(validated_data['password'])  # Password encrypt karo
+        user.set_password(validated_data['password'])  # Password ko securely store karo
         user.save()
         return user
 
-# 🪑 Individual Seat Details Serializer
+# Ek seat ki detail dikhane ke liye serializer
 class SeatSerializer(serializers.ModelSerializer):
-    last_booked_by = serializers.StringRelatedField(read_only=True)  # User ka naam dikhao
+    last_booked_by = serializers.StringRelatedField(read_only=True)  # User ka naam dikhao (not full object)
 
     class Meta:
         model = Seat
         fields = ['id', 'seat_number', 'is_booked', 'last_booked_at', 'last_booked_by']
         read_only_fields = ['last_booked_at', 'last_booked_by']
 
-# 🚌 Full Bus Serializer with Seats
+# Bus ke full detail ke liye, including seats
 class BusSerializer(serializers.ModelSerializer):
-    seats = SeatSerializer(many=True, read_only=True)  # All seats show karo
-    available_seats = serializers.IntegerField(read_only=True)  # Custom field: kitni seats available
+    seats = SeatSerializer(many=True, read_only=True)  # Bus ke saare seats fetch karo
+    available_seats = serializers.IntegerField(read_only=True)  # Property: kitni seats available hain
     is_full = serializers.BooleanField(read_only=True)  # Bus full hai ya nahi
 
     class Meta:
@@ -61,7 +61,7 @@ class BusSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at', 'updated_at']
 
-# 🚌 Summary view ke liye lightweight Bus info
+# Lightweight serializer: summary view ke liye bus info
 class BusSummarySerializer(serializers.ModelSerializer):
     available_seats = serializers.IntegerField(read_only=True)
 
@@ -72,16 +72,16 @@ class BusSummarySerializer(serializers.ModelSerializer):
             'start_time', 'reach_time', 'price', 'available_seats'
         ]
 
-# 📄 Booking Detail Serializer
+# Booking ki full details show karne ke liye
 class BookingSerializer(serializers.ModelSerializer):
-    bus = BusSummarySerializer(read_only=True)
+    bus = BusSummarySerializer(read_only=True)  # Bus summary dikhana hai
     seat = SeatSerializer(read_only=True)
-    user = serializers.StringRelatedField()
+    user = serializers.StringRelatedField()  # Username dikhao
     price = serializers.DecimalField(max_digits=8, decimal_places=2, read_only=True)
     origin = serializers.CharField(read_only=True)
     destination = serializers.CharField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
-    status_display = serializers.SerializerMethodField()  # Human readable status
+    status_display = serializers.SerializerMethodField()  # Human-readable status return karo
 
     class Meta:
         model = Booking
@@ -95,17 +95,17 @@ class BookingSerializer(serializers.ModelSerializer):
             'price', 'origin', 'destination', 'cancelled_at'
         ]
 
-    # 🟢 Status ko human-readable banakar bhejo
+    # Status field ka human-readable version return karo
     def get_status_display(self, obj):
         return obj.get_status_display()
 
-# 🆕 Booking Create karne ke liye Serializer
+# Booking create karne ke liye minimal input serializer
 class BookingCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = ['bus', 'seat']
 
-    # ✅ Validation: seat bus ka part hona chahiye aur free bhi ho
+    # Validate karo ki selected seat us bus ka part hai aur already booked na ho
     def validate(self, data):
         if data['seat'].bus != data['bus']:
             raise serializers.ValidationError("Seat does not belong to the selected bus")
@@ -113,7 +113,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("This seat is already booked")
         return data
 
-    # ✅ Booking create karo aur seat ko update bhi karo
+    # Booking create karte hi seat ka status bhi update karo
     def create(self, validated_data):
         user = self.context['request'].user
         booking = Booking.objects.create(
@@ -123,7 +123,6 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             status='confirmed'
         )
 
-        # 🚩 Seat status update karo
         seat = validated_data['seat']
         seat.is_booked = True
         seat.last_booked_at = timezone.now()
@@ -132,11 +131,11 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
         return booking
 
-# ❌ Booking cancel karne ke reason input ke liye
+# Cancel karte waqt reason dene ke liye serializer
 class CancellationSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
-    # ✅ Booking cancel valid hai ya nahi check karo
+    # Booking valid hai ya nahi, aur cancel ho sakti hai ya nahi, yeh check karo
     def validate(self, data):
         booking_id = self.context.get('booking_id')
         user = self.context.get('user')
@@ -150,7 +149,7 @@ class CancellationSerializer(serializers.Serializer):
 
         return data
 
-# 📊 Booking Stats (for dashboard etc.)
+# Dashboard ya profile ke liye user ki total booking stats
 class UserBookingStatsSerializer(serializers.Serializer):
     total_bookings = serializers.IntegerField()
     active_bookings = serializers.IntegerField()
