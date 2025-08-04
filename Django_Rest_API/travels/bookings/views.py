@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from django.utils import timezone
+from django.db import transaction
 
 from .serializers import (
     UserRegisterSerializer,
@@ -130,9 +131,11 @@ class BusDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
 # Booking create karne ke liye API
+
 class BookingView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         try:
             if not request.data.get('bus') or not request.data.get('seat'):
@@ -140,7 +143,10 @@ class BookingView(APIView):
 
             try:
                 bus = Bus.objects.get(id=request.data['bus'])
-                seat = Seat.objects.get(id=request.data['seat'], bus=bus)
+
+                # Row-level locking here:
+                seat = Seat.objects.select_for_update().get(id=request.data['seat'], bus=bus)
+
             except (Bus.DoesNotExist, Seat.DoesNotExist):
                 return Response({'error': 'Invalid bus or seat'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -166,7 +172,10 @@ class BookingView(APIView):
             logger.error(f"Booking error: {str(e)}")
             return Response({'error': f"Failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 # Kisi user ke saare bookings laane ke liye API
+
+
 class UserBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
