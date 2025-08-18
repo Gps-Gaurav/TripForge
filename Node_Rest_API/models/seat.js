@@ -1,15 +1,19 @@
 const mongoose = require('mongoose');
 
 const SeatSchema = new mongoose.Schema({
-  bus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus', required: true },
+  id: { type: Number }, // Django seat primary key
+
+  bus_id: { type: Number, required: true },  // Django foreign key (Bus ka int ID)
   seat_number: { type: String, required: true, maxlength: 10 },
   is_booked: { type: Boolean, default: false },
   last_booked_at: { type: Date, default: null },
-  last_booked_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
-});
+  last_booked_by: { type: Number, default: null } // Django user ka int ID
+}, 
+  { collection: 'bookings_seat' } // ✅ force Django collection
+);
 
 // Unique seat_number per bus
-SeatSchema.index({ bus: 1, seat_number: 1 }, { unique: true });
+SeatSchema.index({ bus_id: 1, seat_number: 1 }, { unique: true });
 
 // Instance method: book
 SeatSchema.methods.book = async function(userId) {
@@ -32,6 +36,5 @@ SeatSchema.methods.cancel = async function() {
   return true;
 };
 
-module.exports = {
-  Seat: mongoose.model('Seat', SeatSchema)
-};
+// ✅ Safe export (avoid creating new "seats" collection)
+module.exports = mongoose.models.Seat || mongoose.model('Seat', SeatSchema, 'bookings_seat');

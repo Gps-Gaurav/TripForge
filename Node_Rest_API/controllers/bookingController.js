@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const { Bus } = require('../models/bus');
-const { Seat } = require('../models/seat');
-const { Booking } = require('../models/booking');
-const logger = require('../utils/logger');
+const  Bus = require('../models/bus');
+const  Seat  = require('../models/seat');
+const  Booking = require('../models/booking');
+const  logger = require('../utils/logger');
 
 // You should have an auth middleware to set req.user from JWT
 

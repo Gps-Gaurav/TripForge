@@ -1,4 +1,4 @@
-const { Bus } = require('../models/bus');
+const Bus  = require('../models/bus');
 const logger = require('../utils/logger');
 
 exports.list = async (req, res) => {

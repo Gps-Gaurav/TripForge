@@ -9,10 +9,16 @@ const connectDB = async () => {
       useUnifiedTopology: true,
     });
     console.log('MongoDB connected');
+    console.log("Using DB:", mongoose.connection.name);
+
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
     process.exit(1);
   }
 };
+mongoose.connection.on('connected', async () => {
+  const collections = await mongoose.connection.db.listCollections().toArray();
+  console.log('Existing collections:', collections.map(c => c.name));
+});
 
 module.exports = connectDB;
