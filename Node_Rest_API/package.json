@@ -1,19 +1,27 @@
 {
   "name": "node_rest_api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "RESTful API for bus booking system (Node.js + Express + MongoDB)",
+  "main": "app.js",
   "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["express", "mongoose", "rest", "api", "bus", "booking"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
   }
 }
