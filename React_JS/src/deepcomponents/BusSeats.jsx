@@ -44,6 +44,7 @@ const BusSeats = ({ token, isDark }) => {
   const [error, setError] = useState(null);
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [journeyDate, setJourneyDate] = useState('');
 
   // Fetch bus and seats data
   useEffect(() => {
@@ -98,6 +99,7 @@ const BusSeats = ({ token, isDark }) => {
       // Update both bus and seats data
       setBus(response.data);
       setSeats(response.data.seats || []);
+      
     } catch (error) {
       console.error('Error fetching updated seats:', error);
       toast.error('Failed to refresh seat data');
@@ -118,48 +120,54 @@ const BusSeats = ({ token, isDark }) => {
   };
 
   // Confirm booking
-  const confirmBooking = async () => {
-    if (!selectedSeat) {
-      toast.error('Please select a seat first');
-      return;
-    }
+const confirmBooking = async () => {
+  if (!selectedSeat) {
+    toast.error('Please select a seat first');
+    return;
+  }
+  if (!journeyDate) {
+    toast.error('Please select a journey date');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL}/booking/`,
-        {
-          bus: bus.id,
-          seat: selectedSeat.id
-        },
-        {
-          headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json'
-          }
+  setLoading(true);
+  try {
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_BASE_URL}/booking/`,
+      {
+        bus: bus.id,
+        seat: selectedSeat.id,
+        journey_date: journeyDate, // API ko date bhejo
+      },
+      {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
         }
-      );
-
-      if (response.status === 201) {
-        setBookingModalOpen(false);
-        setSelectedSeat(null);
-        toast.success('Booking confirmed successfully!');
-        // Fetch updated seat data
-        await fetchUpdatedSeats();
       }
-    } catch (error) {
-      console.error('Booking error:', error);
-      const errorMessage =
-        error.response?.data?.error ||
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        'Failed to confirm booking';
+    );
 
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+    if (response.status === 201) {
+      setBookingModalOpen(false);
+      setSelectedSeat(null);
+      setJourneyDate('');
+      toast.success('Booking confirmed successfully!');
+      await fetchUpdatedSeats();
     }
-  };
+  } catch (error) {
+    console.error('Booking error:', error);
+    const errorMessage =
+      error.response?.data?.error ||
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      'Failed to confirm booking';
+
+    toast.error(errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -313,6 +321,17 @@ const BusSeats = ({ token, isDark }) => {
         isDark={isDark}
       >
         <div className={isDark ? 'text-gray-200' : 'text-gray-800'}>
+          <p className="mb-4">
+  <label className="block mb-2 font-semibold">Select Journey Date:</label>
+  <input
+    type="date"
+    value={journeyDate}
+    onChange={(e) => setJourneyDate(e.target.value)}
+    className={`w-full p-2 border rounded ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'}`}
+    min={new Date().toISOString().split('T')[0]} // aaj ke baad ki date
+  />
+</p>
+
           <p className="mb-4">
             Are you sure you want to book seat{' '}
             <strong>{selectedSeat?.seat_number}</strong>?

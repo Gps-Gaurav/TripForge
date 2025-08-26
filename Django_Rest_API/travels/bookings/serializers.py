@@ -38,12 +38,19 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
 # Ek seat ki detail dikhane ke liye serializer
 class SeatSerializer(serializers.ModelSerializer):
-    last_booked_by = serializers.StringRelatedField(read_only=True)  # User ka naam dikhao (not full object)
+    # last booking info for display (optional)
+    last_booking_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Seat
-        fields = ['id', 'seat_number', 'is_booked', 'last_booked_at', 'last_booked_by']
-        read_only_fields = ['last_booked_at', 'last_booked_by']
+        fields = ['id', 'seat_number', 'last_booking_info']
+
+    def get_last_booking_info(self, obj):
+        # latest confirmed booking for this seat
+        last_booking = obj.booking_set.filter(status='confirmed').order_by('-journey_date').first()
+        if last_booking:
+            return f"{last_booking.journey_date} by {last_booking.user.username}"
+        return "Available"
 
 # Bus ke full detail ke liye, including seats
 class BusSerializer(serializers.ModelSerializer):
@@ -86,8 +93,8 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = [
-            'id', 'user', 'bus', 'seat', 'booking_time', 'status',
-            'status_display', 'cancelled_at', 'cancellation_reason',
+            'id', 'user', 'bus', 'seat', 'booking_time', 'journey_date',
+            'status', 'status_display', 'cancelled_at', 'cancellation_reason',
             'price', 'origin', 'destination', 'can_cancel'
         ]
         read_only_fields = [
@@ -100,34 +107,43 @@ class BookingSerializer(serializers.ModelSerializer):
         return obj.get_status_display()
 
 # Booking create karne ke liye minimal input serializer
+# Create serializer
 class BookingCreateSerializer(serializers.ModelSerializer):
+    journey_date = serializers.DateField(required=True)
+
     class Meta:
         model = Booking
-        fields = ['bus', 'seat']
+        fields = ['bus', 'seat', 'journey_date']
 
-    # Validate karo ki selected seat us bus ka part hai aur already booked na ho
     def validate(self, data):
+        # Seat bus ka hona chahiye
         if data['seat'].bus != data['bus']:
             raise serializers.ValidationError("Seat does not belong to the selected bus")
-        if data['seat'].is_booked:
-            raise serializers.ValidationError("This seat is already booked")
+
+        # Seat already booked na ho us date ke liye
+        if Booking.objects.filter(
+            seat=data['seat'],
+            bus=data['bus'],
+            journey_date=data['journey_date'],
+            status='confirmed'
+        ).exists():
+            raise serializers.ValidationError("This seat is already booked for the selected date")
+
         return data
 
-    # Booking create karte hi seat ka status bhi update karo
     def create(self, validated_data):
         user = self.context['request'].user
+
         booking = Booking.objects.create(
             user=user,
             bus=validated_data['bus'],
             seat=validated_data['seat'],
+            journey_date=validated_data['journey_date'],
             status='confirmed'
         )
 
-        seat = validated_data['seat']
-        seat.is_booked = True
-        seat.last_booked_at = timezone.now()
-        seat.last_booked_by = user
-        seat.save()
+        # ❌ Do NOT set seat.is_booked = True (wrong for multi-date system)
+        # Agar tum future me "permanent lock" chahte ho to use karo
 
         return booking
 

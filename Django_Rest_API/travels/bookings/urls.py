@@ -7,7 +7,7 @@ from .views import (
     BookingView, 
     BusDetailView,
     CancelBookingView,
-    UserBookingStatsView
+    booking_stats
 )
 
 urlpatterns = [
@@ -19,6 +19,6 @@ urlpatterns = [
     path('user/<int:user_id>/bookings/', UserBookingView.as_view(), name="user-bookings"),
     path('booking/', BookingView.as_view(), name='booking'),
     path('user/<int:user_id>/bookings/', UserBookingView.as_view(), name='user-bookings'),
-    path('user/<int:user_id>/booking-stats/', UserBookingStatsView.as_view(), name='user-booking-stats'),
+    path('user/<int:user_id>/booking-stats/', booking_stats, name='user-booking-stats'),
     path('bookings/<int:booking_id>/cancel/', CancelBookingView.as_view(), name='cancel-booking'),
 ]

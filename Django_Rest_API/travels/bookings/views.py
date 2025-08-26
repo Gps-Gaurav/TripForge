@@ -19,31 +19,11 @@ from .models import Bus, Seat, Booking
 import logging
 logger = logging.getLogger(__name__)
 
-# User ke booking stats laane wala API (GET)
-class UserBookingStatsView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request, user_id):
-        try:
-            if request.user.id != user_id:
-                return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
+# --------------------------
+# USER REGISTRATION & LOGIN
+# --------------------------
 
-            now = timezone.now()
-            bookings = Booking.objects.filter(user_id=user_id)
-
-            stats = {
-                'total_bookings': bookings.count(),
-                'active_bookings': bookings.filter(status='confirmed', bus__departure_date__gt=now).count(),
-                'cancelled_bookings': bookings.filter(status='cancelled').count(),
-                'past_bookings': bookings.filter(status='confirmed', bus__departure_date__lt=now).count()
-            }
-
-            return Response(stats)
-        except Exception as e:
-            logger.error(f"Booking stats error: {str(e)}")
-            return Response({'error': f'Error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# User registration API
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -72,7 +52,7 @@ class RegisterView(APIView):
             logger.error(f"Registration error: {str(e)}")
             return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# User login API
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -103,35 +83,46 @@ class LoginView(APIView):
             logger.error(f"Login error: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# Bus list aur nayi bus create karne ke liye API
+
+# --------------------------
+# BUS LIST & DETAIL
+# --------------------------
+
 class BusListCreateView(generics.ListCreateAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
     permission_classes = [IsAuthenticated]
 
-    # Filter bus list by departure, destination, date
     def get_queryset(self):
         queryset = Bus.objects.all()
         departure = self.request.query_params.get('departure')
         destination = self.request.query_params.get('destination')
-        date = self.request.query_params.get('date')
+        journey_date = self.request.query_params.get('journey_date')
 
         if departure:
             queryset = queryset.filter(origin__icontains=departure)
         if destination:
             queryset = queryset.filter(destination__icontains=destination)
-        if date:
-            queryset = queryset.filter(departure_date=date)
+        # Optional: filter by availability on journey_date
+        if journey_date:
+            booked_buses = Booking.objects.filter(
+                journey_date=journey_date,
+                status='confirmed'
+            ).values_list('bus_id', flat=True)
+            queryset = queryset.exclude(id__in=booked_buses)
 
         return queryset
 
-# Ek bus ko detail me dekhna / update / delete
+
 class BusDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Bus.objects.all()
     serializer_class = BusSerializer
     permission_classes = [IsAuthenticated]
 
-# Booking create karne ke liye API
+
+# --------------------------
+# BOOKING CREATE & LIST
+# --------------------------
 
 class BookingView(APIView):
     permission_classes = [IsAuthenticated]
@@ -139,32 +130,35 @@ class BookingView(APIView):
     @transaction.atomic
     def post(self, request):
         try:
-            if not request.data.get('bus') or not request.data.get('seat'):
-                return Response({'error': 'Bus and seat are required'}, status=status.HTTP_400_BAD_REQUEST)
+            bus_id = request.data.get('bus')
+            seat_id = request.data.get('seat')
+            journey_date = request.data.get('journey_date')
+
+            if not bus_id or not seat_id or not journey_date:
+                return Response({'error': 'Bus, seat and journey_date are required'}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                bus = Bus.objects.get(id=request.data['bus'])
-
-                # Row-level locking here:
-                seat = Seat.objects.select_for_update().get(id=request.data['seat'], bus=bus)
-
+                bus = Bus.objects.get(id=bus_id)
+                seat = Seat.objects.select_for_update().get(id=seat_id, bus=bus)
             except (Bus.DoesNotExist, Seat.DoesNotExist):
                 return Response({'error': 'Invalid bus or seat'}, status=status.HTTP_404_NOT_FOUND)
 
-            if seat.is_booked:
-                return Response({'error': 'Seat already booked'}, status=status.HTTP_400_BAD_REQUEST)
+            # Check seat availability for that date
+            if Booking.objects.filter(
+                seat=seat,
+                bus=bus,
+                journey_date=journey_date,
+                status='confirmed'
+            ).exists():
+                return Response({'error': 'Seat already booked for this date'}, status=status.HTTP_400_BAD_REQUEST)
 
             booking = Booking.objects.create(
                 user=request.user,
                 bus=bus,
                 seat=seat,
+                journey_date=journey_date,
                 status='confirmed'
             )
-
-            seat.is_booked = True
-            seat.last_booked_at = timezone.now()
-            seat.last_booked_by = request.user
-            seat.save()
 
             serializer = BookingSerializer(booking)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -172,9 +166,6 @@ class BookingView(APIView):
         except Exception as e:
             logger.error(f"Booking error: {str(e)}")
             return Response({'error': f"Failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# Kisi user ke saare bookings laane ke liye API
 
 
 class UserBookingView(APIView):
@@ -194,7 +185,7 @@ class UserBookingView(APIView):
         serializer = BookingSerializer(bookings, many=True)
         return Response(serializer.data)
 
-# Booking cancel karne ka API
+
 class CancelBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -207,12 +198,6 @@ class CancelBookingView(APIView):
 
             if not booking.can_cancel:
                 return Response({'detail': 'Cannot cancel this booking'}, status=status.HTTP_400_BAD_REQUEST)
-
-            if hasattr(booking, 'seats'):
-                for seat in booking.seats.all():
-                    seat.cancel()
-            elif hasattr(booking, 'seat'):
-                booking.seat.cancel()
 
             booking.status = 'cancelled'
             booking.cancelled_at = timezone.now()
@@ -227,24 +212,26 @@ class CancelBookingView(APIView):
         except Booking.DoesNotExist:
             return Response({'detail': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"Cancel booking error: {str(e)}")
             return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# Booking statistics function-based view
+
+# --------------------------
+# BOOKING STATS
+# --------------------------
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def booking_stats(request, user_id):
     if request.user.id != user_id:
         return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    now = timezone.now()
+    now = timezone.now().date()
 
     stats = Booking.objects.filter(user_id=user_id).aggregate(
         total_bookings=Count('id'),
-        active_bookings = Count(
-        'id',
-        filter=Q(status='confirmed') & Q(bus__departure_date__gte=timezone.now())
-        ),
-        past_bookings=Count('id', filter=Q(bus__departure_date__lt=now)),
+        active_bookings=Count('id', filter=Q(status='confirmed') & Q(journey_date__gte=now)),
+        past_bookings=Count('id', filter=Q(status='confirmed') & Q(journey_date__lt=now)),
         cancelled_bookings=Count('id', filter=Q(status='cancelled'))
     )
 

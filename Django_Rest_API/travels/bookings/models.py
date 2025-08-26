@@ -38,87 +38,73 @@ class Bus(models.Model):
 
 # Seat model - har bus ki seat ka record rakhta hai
 class Seat(models.Model):
-    bus = models.ForeignKey('Bus', on_delete=models.CASCADE, related_name='seats')  # Kis bus me hai ye seat
-    seat_number = models.CharField(max_length=10)  # Seat ka number (A1, B2 etc.)
-    is_booked = models.BooleanField(default=False)  # Booked hai ya nahi
-    last_booked_at = models.DateTimeField(null=True, blank=True)  # Last booking time
-    last_booked_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='booked_seats'  # Kis user ne seat book ki
-    )
+    bus = models.ForeignKey('Bus', on_delete=models.CASCADE, related_name='seats')
+    seat_number = models.CharField(max_length=10)
 
     class Meta:
-        unique_together = ['bus', 'seat_number']  # Bus ke andar same seat_number repeat nahi hoga
+        unique_together = ['bus', 'seat_number']
 
     def __str__(self):
         return f"{self.seat_number}"
 
-    # Seat book karne ka logic
-    def book(self, user):
-        if not self.is_booked:
-            self.is_booked = True
-            self.last_booked_at = timezone.now()
-            self.last_booked_by = user
-            self.save()
-            return True
-        return False
+    # Optional: Dynamic check for a specific journey date
+    def is_available(self, journey_date):
+        return not Booking.objects.filter(
+            seat=self,
+            bus=self.bus,
+            journey_date=journey_date,
+            status='confirmed'
+        ).exists()
 
-    # Seat cancel karne ka logic
-    def cancel(self):
-        self.is_booked = False
-        self.last_booked_at = None
-        self.last_booked_by = None
-        self.save()
-        return True
 
-# Booking model - user kis bus ki kis seat ko book karta hai uska record
 class Booking(models.Model):
     STATUS_CHOICES = (
-        ('pending', 'Pending'),       # Booking hui hai but confirm nahi
-        ('confirmed', 'Confirmed'),   # Confirmed booking
-        ('cancelled', 'Cancelled'),   # Cancelled booking
-        ('completed', 'Completed')    # Safar complete ho gaya
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+        ('completed', 'Completed'),
     )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')  # Kis user ne booking ki
-    bus = models.ForeignKey(Bus, on_delete=models.CASCADE)  # Kis bus ki booking hai
-    seat = models.ForeignKey(Seat, on_delete=models.CASCADE)  # Konsi seat book hui
-    booking_time = models.DateTimeField(auto_now_add=True)  # Booking ka time
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmed')  # Booking status
-    cancelled_at = models.DateTimeField(null=True, blank=True)  # Cancel kab hui
-    cancellation_reason = models.TextField(blank=True)  # Cancel karne ka reason
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
+    bus = models.ForeignKey('Bus', on_delete=models.CASCADE)
+    seat = models.ForeignKey(Seat, on_delete=models.CASCADE)
+
+    booking_time = models.DateTimeField(auto_now_add=True)
+    journey_date = models.DateField()
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmed')
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True)
 
     class Meta:
-        ordering = ['-booking_time']  # Latest booking pehle dikhai jaye
-        unique_together = ['bus', 'seat', 'status']  # Same seat, same status repeat nahi hona chahiye
+        ordering = ['-booking_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['bus', 'seat', 'journey_date'],
+                condition=models.Q(status='confirmed'),
+                name='unique_confirmed_seat_per_date'
+            )
+        ]
 
     def __str__(self):
-        return f"{self.user.username} - {self.bus.bus_name} - Seat {self.seat.seat_number} ({self.status})"
+        return f"{self.user.username} - {self.bus.bus_name} - Seat {self.seat.seat_number} on {self.journey_date} ({self.status})"
 
-    # Bus ka price return karta hai
     @property
     def price(self):
         return self.bus.price
 
-    # Bus ka origin location
     @property
     def origin(self):
         return self.bus.origin
 
-    # Bus ka destination location
     @property
     def destination(self):
         return self.bus.destination
 
-    # Check karein ki booking cancel ho sakti hai ya nahi
     @property
     def can_cancel(self):
         return self.status not in ['cancelled', 'completed']
 
-    # Booking cancel karne ka logic
     def cancel_booking(self, reason=''):
         if not self.can_cancel:
             raise ValueError("This booking cannot be cancelled")
@@ -126,14 +112,9 @@ class Booking(models.Model):
         self.status = 'cancelled'
         self.cancelled_at = timezone.now()
         self.cancellation_reason = reason
-
-        if self.seat:
-            self.seat.cancel()  # Seat ko bhi free karna padega
-
         self.save()
         return True
 
-    # Booking complete karne ka logic
     def complete_booking(self):
         if self.status not in ['confirmed', 'pending']:
             raise ValueError("Only confirmed or pending bookings can be completed")
