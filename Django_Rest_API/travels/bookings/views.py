@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.db.models import Count, Q
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from rest_framework import status, generics
@@ -236,14 +237,15 @@ def booking_stats(request, user_id):
         return Response({'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
 
     now = timezone.now()
-    total_bookings = Booking.objects.filter(user_id=user_id).count()
-    active_bookings = Booking.objects.filter(user_id=user_id, status='confirmed', bus__departure_date__gt=now).count()
-    past_bookings = Booking.objects.filter(user_id=user_id, bus__departure_date__lt=now).count()
-    cancelled_bookings = Booking.objects.filter(user_id=user_id, status='cancelled').count()
 
-    return Response({
-        'total_bookings': total_bookings,
-        'active_bookings': active_bookings,
-        'past_bookings': past_bookings,
-        'cancelled_bookings': cancelled_bookings
-    })
+    stats = Booking.objects.filter(user_id=user_id).aggregate(
+        total_bookings=Count('id'),
+        active_bookings = Count(
+        'id',
+        filter=Q(status='confirmed') & Q(bus__departure_date__gte=timezone.now())
+        ),
+        past_bookings=Count('id', filter=Q(bus__departure_date__lt=now)),
+        cancelled_bookings=Count('id', filter=Q(status='cancelled'))
+    )
+
+    return Response(stats)

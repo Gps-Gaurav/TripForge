@@ -3,187 +3,94 @@ import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import { useTheme } from '../context/ThemeContext';
 import 'react-toastify/dist/ReactToastify.css';
+import { loadRazorpay } from '../utils/loadRazorpay';
 
 // Payment Modal Component
-const PaymentModal = ({ isOpen, onClose, amount, isDark }) => {
-  const [paymentMethod, setPaymentMethod] = useState('upi');
-  const [upiId, setUpiId] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [cardName, setCardName] = useState('');
-
+const PaymentModal = ({ isOpen, onClose, amount, bookingId, isDark, fetchBookings, fetchBookingStats }) => {
   if (!isOpen) return null;
 
-  const handlePayment = async (e) => {
-    e.preventDefault();
-    try {
-      // Add payment processing logic here
-      toast.success('Payment processed successfully!');
-      onClose();
-    } catch (error) {
-      toast.error('Payment failed: ' + error.message);
+ const handlePayment = async () => {
+  try {
+    const ok = await loadRazorpay();
+    if (!ok) {
+      toast.error("Razorpay SDK load failed ❌");
+      return;
     }
-  };
 
+    // 1) Create order
+    const { data } = await axios.post(
+      `${import.meta.env.VITE_API_BASE_URL}/payments/create-order/`,
+      { amount }
+    );
+
+    const options = {
+      key: data.key,
+      amount: data.amount,
+      currency: data.currency,
+      name: "Bus Booking",
+      description: `Booking #${bookingId}`,
+      order_id: data.orderId,
+      handler: async function (response) {
+        try {
+          await axios.post(`${import.meta.env.VITE_API_BASE_URL}/payments/verify/`, {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            booking_id: bookingId,
+          });
+
+          toast.success("Payment successful ✅");
+          onClose();
+          await Promise.all([fetchBookings(), fetchBookingStats()]);
+        } catch (verifyError) {
+          console.error("Payment verification failed:", verifyError);
+          toast.error("Payment verification failed ❌");
+        }
+      },
+      modal: {
+        ondismiss: function() {
+          toast.info("Payment cancelled");
+        }
+      },
+      theme: { color: "#3399cc" },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  } catch (err) {
+    console.error("Payment initiation failed:", err);
+    toast.error("Payment failed ❌");
+  }
+};
+
+
+  // Return the modal JSX
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 max-w-md w-full`}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-            Payment Details
-          </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <span className="sr-only">Close</span>
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 max-w-sm w-full`}>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+          Complete Payment
+        </h3>
+        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Booking ID: #{bookingId}
+        </p>
+        <p className={`mb-6 text-xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+          Amount: ₹{amount}
+        </p>
+        <div className="flex justify-end space-x-4">
+          <button
+            className={`px-4 py-2 ${isDark ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800'}`}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            onClick={handlePayment}
+          >
+            Pay Now
           </button>
         </div>
-
-        <div className="mb-4">
-          <p className={isDark ? 'text-gray-300' : 'text-gray-600'}>
-            Amount to Pay: <span className="font-bold">₹{amount}</span>
-          </p>
-        </div>
-
-        <div className="mb-4">
-          <div className="flex space-x-4">
-            <button
-              type="button"
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                paymentMethod === 'upi'
-                  ? 'bg-indigo-600 text-white'
-                  : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-              }`}
-              onClick={() => setPaymentMethod('upi')}
-            >
-              UPI
-            </button>
-            <button
-              type="button"
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                paymentMethod === 'card'
-                  ? 'bg-indigo-600 text-white'
-                  : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-              }`}
-              onClick={() => setPaymentMethod('card')}
-            >
-              Card
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handlePayment}>
-          {paymentMethod === 'upi' ? (
-            <div className="mb-4">
-              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                UPI ID
-              </label>
-              <input
-                type="text"
-                value={upiId}
-                onChange={(e) => setUpiId(e.target.value)}
-                placeholder="username@upi"
-                className={`w-full px-3 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-gray-700 border-gray-600 text-gray-100'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:ring-indigo-500 focus:border-indigo-500`}
-                required
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Card Number
-                </label>
-                <input
-                  type="text"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                  placeholder="1234 5678 9012 3456"
-                  className={`w-full px-3 py-2 rounded-lg border ${
-                    isDark
-                      ? 'bg-gray-700 border-gray-600 text-gray-100'
-                      : 'bg-white border-gray-300 text-gray-900'
-                  } focus:ring-indigo-500 focus:border-indigo-500`}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Expiry Date
-                  </label>
-                  <input
-                    type="text"
-                    value={expiryDate}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-                      if (value.length > 2) {
-                        setExpiryDate(`${value.slice(0, 2)}/${value.slice(2)}`);
-                      } else {
-                        setExpiryDate(value);
-                      }
-                    }}
-                    placeholder="MM/YY"
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      isDark
-                        ? 'bg-gray-700 border-gray-600 text-gray-100'
-                        : 'bg-white border-gray-300 text-gray-900'
-                    } focus:ring-indigo-500 focus:border-indigo-500`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    CVV
-                  </label>
-                  <input
-                    type="password"
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                    placeholder="123"
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      isDark
-                        ? 'bg-gray-700 border-gray-600 text-gray-100'
-                        : 'bg-white border-gray-300 text-gray-900'
-                    } focus:ring-indigo-500 focus:border-indigo-500`}
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Card Holder Name
-                </label>
-                <input
-                  type="text"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
-                  placeholder="John Doe"
-                  className={`w-full px-3 py-2 rounded-lg border ${
-                    isDark
-                      ? 'bg-gray-700 border-gray-600 text-gray-100'
-                      : 'bg-white border-gray-300 text-gray-900'
-                  } focus:ring-indigo-500 focus:border-indigo-500`}
-                  required
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6">
-            <button
-              type="submit"
-              className="w-full py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200"
-            >
-              Pay ₹{amount}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );
@@ -229,10 +136,9 @@ const UserBookings = ({ token, userId }) => {
   const [bookings, setBookings] = useState([]);
   const [bookingStats, setBookingStats] = useState(null);
 
-
   const fetchBookingStats = async () => {
     try {
-      console.log('Fetching stats for user:', userId); // Debug log
+      console.log('Fetching stats for user:', userId);
       
       const response = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/user/${userId}/booking-stats/`,
@@ -250,7 +156,7 @@ const UserBookings = ({ token, userId }) => {
         throw new Error(data.error || 'Failed to fetch booking stats');
       }
 
-      console.log('Received stats:', data); // Debug log
+      console.log('Received stats:', data);
       setBookingStats(data);
       setError(null);
     } catch (err) {
@@ -308,6 +214,46 @@ const UserBookings = ({ token, userId }) => {
     }
   }, [token, userId]);
 
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      await axios({
+        method: 'POST',
+        url: `${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/cancel/`,
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          reason: 'Cancelled by user'
+        }
+      });
+
+      // If successful, refresh the data
+      await Promise.all([
+        fetchBookings(),
+        fetchBookingStats()
+      ]);
+
+      toast.success('Booking cancelled successfully');
+      setConfirmDialog({ isOpen: false, bookingId: null });
+
+    } catch (error) {
+      console.error('Cancellation error details:', error.response || error);
+      
+      const errorMessage = error.response?.data?.detail || 
+                         error.response?.data?.message || 
+                         error.message || 
+                         'Failed to cancel booking';
+      
+      toast.error(errorMessage);
+      setConfirmDialog({ isOpen: false, bookingId: null });
+    }
+  };
+
   // Show loading state
   if (loading) {
     return (
@@ -316,6 +262,7 @@ const UserBookings = ({ token, userId }) => {
       </div>
     );
   }
+
   if (!token || !userId) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -333,6 +280,7 @@ const UserBookings = ({ token, userId }) => {
       </div>
     );
   }
+
   // Show error state
   if (error) {
     return (
@@ -350,48 +298,6 @@ const UserBookings = ({ token, userId }) => {
       </div>
     );
   }
-  const handleCancelBooking = async (bookingId) => {
-    try {
-        // Get token from localStorage
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-            throw new Error('Authentication required');
-        }
-
-        await axios({
-            method: 'POST',
-            url: `${import.meta.env.VITE_API_BASE_URL}/bookings/${bookingId}/cancel/`,
-            headers: {
-                'Authorization': `Token ${token}`,
-                'Content-Type': 'application/json'
-            },
-            data: {
-                reason: 'Cancelled by user'
-            }
-        });
-
-        // If successful, refresh the data
-        await Promise.all([
-            fetchBookings(),
-            fetchBookingStats()
-        ]);
-
-        toast.success('Booking cancelled successfully');
-        setConfirmDialog({ isOpen: false, bookingId: null });
-
-    } catch (error) {
-        console.error('Cancellation error details:', error.response || error);
-        
-        const errorMessage = error.response?.data?.detail || 
-                           error.response?.data?.message || 
-                           error.message || 
-                           'Failed to cancel booking';
-        
-        toast.error(errorMessage);
-        setConfirmDialog({ isOpen: false, bookingId: null });
-    }
-};
 
   return (
     <div className={`container mx-auto px-4 py-8 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
@@ -518,6 +424,8 @@ const UserBookings = ({ token, userId }) => {
         amount={paymentModal.amount}
         bookingId={paymentModal.bookingId}
         isDark={isDark}
+        fetchBookings={fetchBookings}
+        fetchBookingStats={fetchBookingStats}
       />
 
       <ConfirmationDialog
