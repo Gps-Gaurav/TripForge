@@ -6,3 +6,5 @@ dj-database-url
 whitenoise
 gunicorn
 uvicorn
+razorpay
+python-dotenv

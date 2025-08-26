@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'bookings.apps.BookingsConfig',
     'rest_framework.authtoken',
     'corsheaders',
+    "payments"
 ]
 REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
@@ -63,6 +64,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+RAZORPAY_KEY_ID = "rzp_test_xxxxxxxx"
+RAZORPAY_KEY_SECRET = "your_test_secret"
+RAZORPAY_WEBHOOK_SECRET = "whsec_test_123" 
 
 ROOT_URLCONF = 'travels.urls'
 
