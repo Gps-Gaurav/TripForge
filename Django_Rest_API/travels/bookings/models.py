@@ -29,13 +29,17 @@ class Bus(models.Model):
     # Available seats count jo abhi book nahi hui hain
     @property
     def available_seats(self):
-        return self.seats.filter(is_booked=False).count()
+        today = timezone.now().date()
+        booked_seats = Booking.objects.filter(
+            bus=self,
+            journey_date=today,
+            status='confirmed'
+        ).count()
+        return self.no_of_seats - booked_seats
 
-    # Check karein ki bus full ho chuki hai ya nahi
     @property
     def is_full(self):
-        return self.available_seats == 0
-
+        return self.available_seats <= 0# Check karein ki bus full ho chuki hai ya nahi
 # Seat model - har bus ki seat ka record rakhta hai
 class Seat(models.Model):
     bus = models.ForeignKey('Bus', on_delete=models.CASCADE, related_name='seats')
