@@ -57,14 +57,25 @@ class BookingSerializer(serializers.ModelSerializer):
     seats = SeatSerializer(read_only=True, many=True)
     user = serializers.StringRelatedField()
     status_display = serializers.SerializerMethodField()
-    can_cancel = serializers.BooleanField(read_only=True)
+    can_cancel = serializers.SerializerMethodField()  # use method
+    price = serializers.SerializerMethodField()  # ✅ add price
 
     class Meta:
         model = Booking
         fields = [
             'id', 'user', 'bus', 'seats', 'booking_time', 'journey_date',
-            'status', 'status_display', 'cancelled_at', 'cancellation_reason', 'can_cancel'
+            'status', 'status_display', 'cancelled_at', 'cancellation_reason', 'can_cancel', 'price'
         ]
 
     def get_status_display(self, obj):
         return obj.get_status_display()
+
+    def get_can_cancel(self, obj):
+        # For example: can cancel only if journey_date > today and status is confirmed
+        if obj.status != 'confirmed':
+            return False
+        return obj.journey_date >= timezone.now().date()
+
+    def get_price(self, obj):
+        # multiple seats support
+        return sum(seat.bus.price for seat in obj.seats.all())

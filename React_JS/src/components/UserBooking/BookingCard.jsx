@@ -2,6 +2,17 @@
 import React from 'react';
 
 const BookingCard = ({ booking, isDark, onPay, onCancel }) => {
+  // Seats array
+  const seatNumbers = booking.seats && booking.seats.length > 0
+    ? booking.seats.map(s => s.seat_number).join(', ')
+    : booking.seat?.seat_number;
+
+  // Seats count
+  const seatCount = booking.seats && booking.seats.length > 0 ? booking.seats.length : 1;
+
+  // Total amount calculation
+  const totalAmount = booking.bus.price * seatCount;
+
   return (
     <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md p-6`}>
       <div className="flex justify-between items-start">
@@ -19,30 +30,27 @@ const BookingCard = ({ booking, isDark, onPay, onCancel }) => {
             Time: {booking.bus.start_time} → {booking.bus.reach_time}
           </p>
 
-          {/* ✅ Multiple seats support */}
           <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-            Seats:{" "}
-            {booking.seats && booking.seats.length > 0
-              ? booking.seats.map(seat => seat.seat_number).join(", ")
-              : booking.seat?.seat_number}
+            Seats: {seatNumbers || "N/A"}
           </p>
 
           <p
-            className={`${
-              booking.status === "cancelled"
+            className={`${booking.status === "cancelled"
                 ? "text-red-500"
                 : booking.status === "confirmed"
-                ? "text-green-500"
-                : "text-yellow-500"
-            }`}
+                  ? "text-green-500"
+                  : "text-yellow-500"
+              }`}
           >
             Status: {booking.status_display}
           </p>
+
           <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
             Booking Time: {new Date(booking.booking_time).toLocaleString()}
           </p>
+
           <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-            Amount: ₹{booking.price}
+            Amount: ₹{totalAmount}
           </p>
         </div>
 
@@ -55,6 +63,7 @@ const BookingCard = ({ booking, isDark, onPay, onCancel }) => {
               >
                 Pay Now
               </button>
+
               <button
                 onClick={() => onCancel(booking)}
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
