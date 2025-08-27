@@ -1,7 +1,7 @@
 // components/BusSeats/SeatsGrid.jsx
 import React from 'react';
 
-const SeatsGrid = ({ seats, selectedSeat, onSeatClick, isDark }) => {
+const SeatsGrid = ({ seats, selectedSeats = [], onSeatClick, isDark }) => {
   return (
     <section className={`p-6 rounded-lg shadow ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
       <h2 className="text-2xl font-bold mb-6">Select Your Seat</h2>
@@ -24,19 +24,26 @@ const SeatsGrid = ({ seats, selectedSeat, onSeatClick, isDark }) => {
 
       {/* Seats grid */}
       <div className="grid grid-cols-5 gap-4 max-w-md mx-auto">
-        {seats.map(seat => {
-          const isSelected = selectedSeat?.id === seat.id;
+        {seats.map((seat) => {
+          const isSelected = selectedSeats.some((s) => s.id === seat.id);
           const isAvailable = !seat.is_booked || seat.status === 'cancelled';
 
           return (
             <button
               key={seat.id}
               onClick={() => isAvailable && onSeatClick(seat)}
-              className={`p-3 rounded-md font-semibold transition-colors ${isSelected
-                ? isDark ? 'bg-yellow-600 text-black' : 'bg-yellow-300'
-                : isAvailable
-                  ? isDark ? 'bg-green-700 text-green-100 hover:bg-green-600' : 'bg-green-300 hover:bg-green-400'
-                  : isDark ? 'bg-red-700 text-red-200 cursor-not-allowed' : 'bg-red-300 text-red-900 cursor-not-allowed'
+              className={`p-3 rounded-md font-semibold transition-colors 
+                ${isSelected
+                  ? isDark
+                    ? 'bg-yellow-600 text-black'
+                    : 'bg-yellow-300 text-black'
+                  : isAvailable
+                  ? isDark
+                    ? 'bg-green-700 text-green-100 hover:bg-green-600'
+                    : 'bg-green-300 hover:bg-green-400'
+                  : isDark
+                    ? 'bg-red-700 text-red-200 cursor-not-allowed'
+                    : 'bg-red-300 text-red-900 cursor-not-allowed'
                 }`}
               disabled={!isAvailable}
               aria-label={`Seat ${seat.seat_number} ${isAvailable ? 'available' : 'booked'}`}
