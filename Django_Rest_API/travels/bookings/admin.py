@@ -9,7 +9,7 @@ class SeatAdmin(admin.ModelAdmin):
     search_fields = ('seat_number', 'bus__bus_name')
 
     def last_booking_info(self, obj):
-        last_booking = obj.booking_set.filter(status='confirmed').order_by('-journey_date').first()
+        last_booking = obj.bookings.filter(status='confirmed').order_by('-journey_date').first()
         if last_booking:
             return f"{last_booking.journey_date} by {last_booking.user.username}"
         return "Available"
