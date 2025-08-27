@@ -2,7 +2,6 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from ..models import Bus, Booking
 from ..serializers.bus_serializers import BusSerializer
-from django.utils import timezone
 from django.db.models import Count, Q
 
 class BusListCreateView(generics.ListCreateAPIView):
@@ -22,13 +21,20 @@ class BusListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(destination__icontains=destination)
 
         if journey_date:
-            # Filter out buses fully booked for this date
-            booked_counts = Booking.objects.filter(
-                journey_date=journey_date,
-                status='confirmed'
-            ).values('bus').annotate(booked_count=Count('id'))
+            # Get all buses fully booked on this date
+            booked_counts = (
+                Booking.objects.filter(
+                    journey_date=journey_date,
+                    status='confirmed'
+                )
+                .values('bus')
+                .annotate(booked_seats_count=Count('seats'))  # count seats per bus
+            )
             
-            fully_booked_ids = [b['bus'] for b in booked_counts if b['booked_count'] >= Bus.objects.get(id=b['bus']).no_of_seats]
+            fully_booked_ids = [
+                b['bus'] for b in booked_counts
+                if Bus.objects.filter(id=b['bus'], no_of_seats__lte=b['booked_seats_count']).exists()
+            ]
             queryset = queryset.exclude(id__in=fully_booked_ids)
 
         return queryset
@@ -46,5 +52,6 @@ class BusDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
+        # Pass journey_date to serializer so that seats can show is_booked correctly
         context['journey_date'] = self.request.query_params.get('journey_date')
         return context

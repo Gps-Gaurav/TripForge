@@ -1,4 +1,3 @@
-// components/BusSeats/SeatsGrid.jsx
 import React from 'react';
 
 const SeatsGrid = ({ seats, selectedSeats = [], onSeatClick, isDark }) => {
@@ -26,6 +25,7 @@ const SeatsGrid = ({ seats, selectedSeats = [], onSeatClick, isDark }) => {
       <div className="grid grid-cols-5 gap-4 max-w-md mx-auto">
         {seats.map((seat) => {
           const isSelected = selectedSeats.some((s) => s.id === seat.id);
+          // booked = seat confirmed for journey date, cancelled seats considered available
           const isAvailable = !seat.is_booked || seat.status === 'cancelled';
 
           return (

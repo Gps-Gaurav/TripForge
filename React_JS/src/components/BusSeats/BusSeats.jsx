@@ -18,14 +18,17 @@ const BusSeats = ({ token, isDark }) => {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [journeyDate, setJourneyDate] = useState('');
 
-  // Fetch bus & seats
-  const fetchBus = async () => {
+  // Fetch bus & seats for a given date
+  const fetchBus = async (dateParam) => {
     if (!token) return navigate('/login');
     try {
       setLoading(true);
       const response = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/buses/${busId}/`,
-        { headers: { Authorization: `Token ${token}` } }
+        { 
+          headers: { Authorization: `Token ${token}` },
+          params: { journey_date: dateParam || journeyDate } // send selected date
+        }
       );
       setBus(response.data);
       setSeats(response.data.seats || []);
@@ -45,10 +48,14 @@ const BusSeats = ({ token, isDark }) => {
 
   // Refresh seats periodically
   const fetchUpdatedSeats = async () => {
+    if (!journeyDate) return;
     try {
       const response = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/buses/${busId}/`,
-        { headers: { Authorization: `Token ${token}` } }
+        { 
+          headers: { Authorization: `Token ${token}` },
+          params: { journey_date: journeyDate }
+        }
       );
       setBus(response.data);
       setSeats(response.data.seats || []);
@@ -61,12 +68,18 @@ const BusSeats = ({ token, isDark }) => {
   useEffect(() => {
     const intervalId = setInterval(fetchUpdatedSeats, 30000);
     return () => clearInterval(intervalId);
-  }, [busId]);
+  }, [busId, journeyDate]);
+
+  // Handle journey date change
+  const onJourneyDateChange = (date) => {
+    setJourneyDate(date);
+    setSelectedSeats([]); // reset selected seats on date change
+    fetchBus(date); // fetch seats for the selected date
+  };
 
   // Seat select/deselect
   const onSeatClick = (seat) => {
-    if (!token)
-      return toast.error('Please login to book seats') && navigate('/login');
+    if (!token) return toast.error('Please login to book seats') && navigate('/login');
 
     const isAvailable = !seat.is_booked || seat.status === 'cancelled';
     if (!isAvailable) return;
@@ -88,8 +101,7 @@ const BusSeats = ({ token, isDark }) => {
 
   // Confirm booking
   const confirmBooking = async () => {
-    if (!selectedSeats.length)
-      return toast.error('Please select at least one seat');
+    if (!selectedSeats.length) return toast.error('Please select at least one seat');
     if (!journeyDate) return toast.error('Please select a journey date');
 
     setLoading(true);
@@ -108,8 +120,7 @@ const BusSeats = ({ token, isDark }) => {
         toast.success('Booking confirmed successfully!');
         setBookingModalOpen(false);
         setSelectedSeats([]);
-        setJourneyDate('');
-        await fetchUpdatedSeats();
+        fetchBus(journeyDate); // refresh seats after booking
       }
     } catch (err) {
       console.error(err);
@@ -129,19 +140,11 @@ const BusSeats = ({ token, isDark }) => {
   if (error)
     return (
       <div className="container mx-auto p-6">
-        <div
-          className={`p-4 rounded-lg ${
-            isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'
-          }`}
-        >
+        <div className={`p-4 rounded-lg ${isDark ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'}`}>
           <p className="font-medium">{error}</p>
           <button
-            onClick={fetchBus}
-            className={`mt-4 px-4 py-2 rounded ${
-              isDark
-                ? 'bg-red-800 hover:bg-red-700'
-                : 'bg-red-200 hover:bg-red-300'
-            }`}
+            onClick={() => fetchBus(journeyDate)}
+            className={`mt-4 px-4 py-2 rounded ${isDark ? 'bg-red-800 hover:bg-red-700' : 'bg-red-200 hover:bg-red-300'}`}
           >
             Try Again
           </button>
@@ -151,27 +154,19 @@ const BusSeats = ({ token, isDark }) => {
 
   if (!bus)
     return (
-      <div
-        className={`container mx-auto p-6 ${
-          isDark ? 'text-gray-200' : 'text-gray-800'
-        }`}
-      >
+      <div className={`container mx-auto p-6 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
         <p>No bus data available.</p>
       </div>
     );
 
   return (
-    <div
-      className={`container mx-auto p-6 ${
-        isDark ? 'text-gray-100' : 'text-gray-900'
-      }`}
-    >
+    <div className={`container mx-auto p-6 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
       {/* Bus info + booking section */}
       <BusDetails
         bus={bus}
         isDark={isDark}
         journeyDate={journeyDate}
-        setJourneyDate={setJourneyDate}
+        setJourneyDate={onJourneyDateChange} // pass updated handler
         selectedSeats={selectedSeats}
         openBooking={openBooking}
       />
@@ -189,7 +184,7 @@ const BusSeats = ({ token, isDark }) => {
         bus={bus}
         selectedSeats={selectedSeats}
         journeyDate={journeyDate}
-        setJourneyDate={setJourneyDate}
+        setJourneyDate={onJourneyDateChange}
         confirmBooking={confirmBooking}
         setBookingModalOpen={setBookingModalOpen}
         isDark={isDark}
