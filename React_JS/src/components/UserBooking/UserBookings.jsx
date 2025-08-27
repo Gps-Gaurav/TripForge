@@ -1,3 +1,4 @@
+// src/components/UserBookings.jsx
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { useTheme } from '../../context/ThemeContext';
@@ -14,19 +15,24 @@ const UserBookings = ({ token, userId }) => {
   const [bookings, setBookings] = useState([]);
   const [bookingStats, setBookingStats] = useState(null);
 
-  const [paymentModal, setPaymentModal] = useState({ isOpen: false, amount: 0, bookingId: null });
+  const [paymentModal, setPaymentModal] = useState({
+    isOpen: false,
+    amount: 0,
+    bookingId: null,
+    seats: [],
+  });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, bookingId: null });
 
   // ✅ Fetch combined stats + bookings
   const fetchBookingStats = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/user/${userId}/booking-stats/`, {
-        headers: { Authorization: `Token ${token}` },
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/user/${userId}/booking-stats/`,
+        { headers: { Authorization: `Token ${token}` } }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch stats');
 
-      // Backend ab stats + bookings dono return kar raha
       setBookingStats(data.stats);
       setBookings(data.bookings);
       setError(null);
@@ -48,6 +54,7 @@ const UserBookings = ({ token, userId }) => {
     fetchData();
   }, [token, userId]);
 
+  // ✅ Cancel booking
   const handleCancelBooking = async (bookingId) => {
     try {
       await axios.post(
@@ -65,17 +72,27 @@ const UserBookings = ({ token, userId }) => {
     }
   };
 
+  // ✅ Payment modal
   const handlePay = (booking) => {
-  const seatNumbers = booking.seats?.map(s => s.seat_number) || (booking.seat ? [booking.seat.seat_number] : []);
-  setPaymentModal({
-    isOpen: true,
-    amount: booking.price,
-    bookingId: booking.id,
-    seats: seatNumbers,
-  });
-};
-const handleCancel = (booking) => setConfirmDialog({ isOpen: true, bookingId: booking.id });
+    const seatNumbers = booking.seats?.map((s) => s.seat_number) || [];
+    setPaymentModal({
+      isOpen: true,
+      amount: booking.price,
+      bookingId: booking.id,
+      seats: seatNumbers,
+    });
+  };
 
+  // ✅ Cancel dialog
+  const handleCancel = (booking) => {
+    if (booking.can_cancel) {
+      setConfirmDialog({ isOpen: true, bookingId: booking.id });
+    } else {
+      toast.info('This booking cannot be cancelled');
+    }
+  };
+
+  // ✅ Loading / Error / No token handling
   if (loading)
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -131,9 +148,7 @@ const handleCancel = (booking) => setConfirmDialog({ isOpen: true, bookingId: bo
       {/* ✅ Modals */}
       <PaymentModal
         {...paymentModal}
-        onClose={() =>
-          setPaymentModal({ isOpen: false, amount: 0, bookingId: null })
-        }
+        onClose={() => setPaymentModal({ isOpen: false, amount: 0, bookingId: null, seats: [] })}
         fetchBookings={fetchBookingStats}
         fetchBookingStats={fetchBookingStats}
         isDark={isDark}
@@ -146,11 +161,7 @@ const handleCancel = (booking) => setConfirmDialog({ isOpen: true, bookingId: bo
         isDark={isDark}
       />
 
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        theme={isDark ? 'dark' : 'light'}
-      />
+      <ToastContainer position="top-right" autoClose={3000} theme={isDark ? 'dark' : 'light'} />
     </div>
   );
 };

@@ -59,45 +59,19 @@ class UserBookingView(APIView):
 class CancelBookingView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @transaction.atomic
     def post(self, request, booking_id):
         try:
-            booking = Booking.objects.select_for_update().get(id=booking_id)
-
-            if booking.user != request.user:
-                return Response(
-                    {'detail': 'Not authorized'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
+            booking = Booking.objects.get(id=booking_id, user=request.user)
             if not booking.can_cancel:
-                return Response(
-                    {'detail': 'Cannot cancel this booking'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Seat ko dobara available karna
-            seats = Seat.objects.filter(booking=booking).select_for_update()
-            seats.update(is_booked=False, booking=None)
-
-            booking.status = 'cancelled'
-            booking.cancelled_at = timezone.now()
-            booking.cancellation_reason = request.data.get('reason', 'Cancelled by user')
-            booking.save()
-
-            return Response(
-                {'detail': 'Booking cancelled successfully', 'booking_id': booking_id},
-                status=status.HTTP_200_OK
-            )
-
+                return Response({"detail": "Booking cannot be cancelled"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            reason = request.data.get('reason', 'Cancelled by user')
+            booking.cancel_booking(reason=reason)
+            return Response({
+                "detail": "Booking cancelled successfully",
+                "booking_id": booking.id,
+                "status": booking.status,
+                "cancelled_at": booking.cancelled_at
+            })
         except Booking.DoesNotExist:
-            return Response(
-                {'detail': 'Booking not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f"Cancel booking error: {str(e)}")
-            return Response(
-                {'detail': 'Internal server error', 'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"detail": "Booking not found"}, status=status.HTTP_404_NOT_FOUND)
