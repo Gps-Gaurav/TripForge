@@ -65,8 +65,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-RAZORPAY_KEY_ID = "rzp_live_RArI2ALdHnAdFG"
-RAZORPAY_KEY_SECRET = "lfRPEwFUCsbi1LXJwnvoWyv0"
+RAZORPAY_KEY_ID = "rzp_test_RA24xW8Uccu5lr"
+RAZORPAY_KEY_SECRET = "Gsd19GWrJOlPgyIErxMcrrCp"
 RAZORPAY_WEBHOOK_SECRET = "whsec_test_123" 
 
 ROOT_URLCONF = 'travels.urls'
